@@ -1,0 +1,9 @@
+# Local override: publish the agent-runtime Postgres on the host so a
+# host-run dev server (`pnpm dev`) can reach 127.0.0.1:5432. The base compose
+# file only exposes postgres inside the compose network (the in-compose app
+# service reaches it by service name); this override adds the host mapping for
+# development outside Docker. Not intended for production deployments.
+services:
+  postgres:
+    ports:
+      - '127.0.0.1:5432:5432'

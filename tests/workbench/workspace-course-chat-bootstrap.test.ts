@@ -242,7 +242,7 @@ let container: HTMLDivElement | null = null;
 
 const classroom = (id: string) => ({ id, name: `${id} name`, sceneCount: 3, isOwner: true });
 
-const render = async (node: ReactNode = createElement(WorkspaceShell)) => {
+const render = async (node: ReactNode = createElement(WorkspaceShell, { exitHref: '/' })) => {
   container ??= document.createElement('div');
   if (!container.parentNode) document.body.appendChild(container);
   root ??= createRoot(container);
@@ -487,7 +487,7 @@ describe('a course opened without a conversation', () => {
   });
 
   it('survives a StrictMode double-invoke without creating anything', async () => {
-    await render(createElement(StrictMode, null, createElement(WorkspaceShell)));
+    await render(createElement(StrictMode, null, createElement(WorkspaceShell, { exitHref: '/' })));
     await act(async () => {});
 
     expect(mocks.startFirstMessage).not.toHaveBeenCalled();

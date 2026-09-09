@@ -63,3 +63,24 @@ export function resolveRequestOwnerId(
   responseHeaders.append('Set-Cookie', anonymousCookieHeader(id));
   return `anon:${id}`;
 }
+
+// --- Teacher owners ------------------------------------------------------------
+//
+// Teachers authenticate with the `openmaic_teacher` cookie (server-only HMAC
+// verification). Their agent sessions and documents partition under a distinct
+// `teacher:<tid>` owner id, which the document-store seam resolves to the
+// courseware backend instead of the anonymous Postgres one.
+
+export const TEACHER_OWNER_PREFIX = 'teacher:';
+
+/** Build the agent owner id for a signed-in teacher account. */
+export function teacherOwnerId(tid: string): string {
+  return `${TEACHER_OWNER_PREFIX}${tid}`;
+}
+
+/** Parse a teacher id out of a `teacher:<tid>` owner id, or null otherwise. */
+export function teacherIdFromOwner(ownerId: string): string | null {
+  if (!ownerId.startsWith(TEACHER_OWNER_PREFIX)) return null;
+  const tid = ownerId.slice(TEACHER_OWNER_PREFIX.length);
+  return tid.length > 0 ? tid : null;
+}

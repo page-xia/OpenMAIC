@@ -467,10 +467,47 @@ export function SlideNavRail() {
                   </Fragment>
                 ))}
               </Reorder.Group>
+              {/* Trailing "new page" button — always visible, unlike the
+                  hover-revealed insertion zones, so "how do I add a page"
+                  has an obvious answer. Same chooser as the zones. */}
+              {SCENE_CREATION_ENABLED && (
+                <AppendPageButton
+                  label={t('edit.nav.addPageButton')}
+                  slideLabel={t('edit.sceneType.slide')}
+                  quizLabel={t('edit.sceneType.quiz')}
+                  onInsert={(type) => handleInsertAt(scenes.length, type)}
+                />
+              )}
             </motion.div>
           </AnimatePresence>
         </div>
       )}
     </aside>
+  );
+}
+
+/**
+ * Always-visible append-page affordance at the end of the thumbnail list.
+ * Opens the same slide/quiz chooser the insertion zones use.
+ */
+function AppendPageButton({
+  label,
+  slideLabel,
+  quizLabel,
+  onInsert,
+}: {
+  readonly label: string;
+  readonly slideLabel: string;
+  readonly quizLabel: string;
+  readonly onInsert: (type: EditableSceneType) => void;
+}) {
+  return (
+    <InsertionZone
+      label={label}
+      slideLabel={slideLabel}
+      quizLabel={quizLabel}
+      onInsert={onInsert}
+      variant="button"
+    />
   );
 }

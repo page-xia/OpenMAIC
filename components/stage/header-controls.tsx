@@ -91,6 +91,7 @@ export function HeaderControls({
   const scenes = useStageStore((s) => s.scenes);
   const generatingOutlines = useStageStore((s) => s.generatingOutlines);
   const failedOutlines = useStageStore((s) => s.failedOutlines);
+  const readOnlyViewer = useStageStore((s) => s.readOnly);
   const mediaTasks = useMediaGenerationStore((s) => s.tasks);
   const { exporting: isExporting, exportPPTX, exportResourcePack } = useExportPPTX();
   const { exporting: isExportingZip, exportClassroomZip } = useExportClassroom();
@@ -200,14 +201,17 @@ export function HeaderControls({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Settings */}
-        <button
-          onClick={() => setSettingsOpen(true)}
-          className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all group"
-          aria-label={t('settings.title')}
-        >
-          <Settings className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
-        </button>
+        {/* Settings — configuration is a teacher/server concern; read-only
+            viewers of a published course get no settings surface. */}
+        {!readOnlyViewer && (
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all group"
+            aria-label={t('settings.title')}
+          >
+            <Settings className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
+          </button>
+        )}
       </div>
 
       {/* Pro Switch — toggle property: on/off both clickable, not a

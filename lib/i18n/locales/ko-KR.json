@@ -375,7 +375,8 @@
       "sceneIncomplete": "이 페이지의 내용이 미완성입니다",
       "addPage": "페이지 추가",
       "nextPage": "다음 페이지",
-      "prevPage": "이전 페이지"
+      "prevPage": "이전 페이지",
+      "addPageButton": "새 페이지"
     },
     "cue": {
       "speech": "내레이션",
@@ -644,6 +645,17 @@
     "dock": {
       "elementRefHint": "요소 참조 — 다음 메시지와 함께 보낼 요소 선택",
       "globalTools": "전역 도구"
+    },
+    "assistant": {
+      "assistantGenerate": "AI 원클릭 과정 생성",
+      "assistantGenerateHint": "과정 요구사항을 설명하면 AI 어시스턴트가 이 과정의 페이지를 생성·조정합니다",
+      "assistantPanel": "AI 어시스턴트",
+      "assistantPanelExpand": "AI 어시스턴트 펼치기",
+      "assistantPanelCollapse": "AI 어시스턴트 접기",
+      "assistantRequirementLabel": "과정 요구사항",
+      "assistantRequirementPlaceholder": "예: 중학교 2학년을 위한 「빛의 굴절」 45분 수업, 실생활 예시와 퀴즈 2개, 정리 포함",
+      "assistantSubmit": "생성 시작",
+      "assistantUnavailable": "AI 어시스턴트를 사용할 수 없습니다: agent runtime이 비활성화되었습니다 (OPENMAIC_AGENT_RUNTIME_ENABLED 및 DATABASE_URL 필요)"
     }
   },
   "classroomComplete": {
@@ -2031,5 +2043,39 @@
         "materialExtraction": null
       }
     }
+  },
+  "studentHome": {
+    "slogan": "Multi-Agent Interactive Classroom · Start Learning",
+    "assistant": "AI Study Assistant",
+    "assistantHint": "Ask anything, no setup needed",
+    "askPlaceholder": "e.g. Explain the Pythagorean theorem in simple terms",
+    "ask": "Ask",
+    "thinking": "Thinking",
+    "library": "Course Library",
+    "emptyLibrary": "No published courses yet — check back soon.",
+    "addAttachment": "Add attachment",
+    "attachmentParsing": "Parsing…",
+    "attachmentFailed": "Could not be parsed for questions",
+    "removeAttachment": "Remove attachment",
+    "attachmentContext": "{{n}} file(s) attached",
+    "attachmentOnly": "Please answer based on the attached files"
+  },
+  "teacherRail": {
+    "tabAll": "전체",
+    "tabDraft": "초안",
+    "tabPublished": "게시됨",
+    "navAria": "교사 콘솔 탐색",
+    "homeAria": "코스",
+    "brandSub": "교사 콘솔",
+    "newCourse": "새 코스",
+    "tabsAria": "코스 상태",
+    "studentHome": "학생 홈",
+    "logout": "로그아웃",
+    "statusPublished": "게시됨",
+    "statusDraft": "초안",
+    "statusArchived": "보관됨",
+    "coursesNav": "코스 관리",
+    "invitesNav": "초대 코드",
+    "studentsNav": "학생 관리"
   }
 }

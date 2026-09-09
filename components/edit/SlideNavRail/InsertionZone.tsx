@@ -10,6 +10,12 @@ interface InsertionZoneProps {
   readonly slideLabel: string;
   readonly quizLabel: string;
   readonly onInsert: (type: EditableSceneType) => void;
+  /**
+   * `gap` (default) — the hover-revealed 8px strip between thumbs.
+   * `button` — a always-visible dashed "add page" tile, used at the end of
+   * the list so page creation has an obvious entry point.
+   */
+  readonly variant?: 'gap' | 'button';
 }
 
 /**
@@ -21,7 +27,40 @@ interface InsertionZoneProps {
  * on its own z-layer with a solid background + soft drop shadow so it
  * clearly floats above any adjacent violet ring.
  */
-export function InsertionZone({ label, slideLabel, quizLabel, onInsert }: InsertionZoneProps) {
+export function InsertionZone({
+  label,
+  slideLabel,
+  quizLabel,
+  onInsert,
+  variant = 'gap',
+}: InsertionZoneProps) {
+  if (variant === 'button') {
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            data-testid="slide-nav-append"
+            className={cn(
+              'mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold',
+              'border border-dashed border-zinc-300 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400',
+              'transition-colors hover:border-violet-400 hover:bg-violet-50/60 hover:text-violet-600',
+              'dark:hover:border-violet-500/60 dark:hover:bg-violet-500/10 dark:hover:text-violet-300',
+              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-400/50',
+            )}
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+            {label}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent side="right" align="center" sideOffset={8} className="w-40 p-1.5">
+          <SceneTypeChoice type="slide" label={slideLabel} Icon={Presentation} onInsert={onInsert} />
+          <SceneTypeChoice type="quiz" label={quizLabel} Icon={ListChecks} onInsert={onInsert} />
+        </PopoverContent>
+      </Popover>
+    );
+  }
+
   // `z-20` lifts the whole zone above adjacent `Reorder.Item` siblings.
   // Without this, the next-in-DOM-order ThumbItem (which has a `transform`
   // via motion's Reorder, creating its own stacking context) paints on

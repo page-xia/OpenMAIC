@@ -464,6 +464,15 @@ Without these opt-ins, OpenMAIC retains its existing browser-only behavior.
 Runner cadence (scan interval, heartbeat, lease TTL, concurrency, attempts) and
 the reserved compaction knobs are listed in `.env.example`.
 
+The same agent runtime powers the teacher course editor's **AI 助理** panel
+(`/teacher/courses/:id/edit`): a chat column beside the classroom plus the
+"AI 一键生成课程" button next to the editor title. A signed-in teacher's agent
+sessions resolve to `teacher:<tid>` owners whose documents live in the teacher
+courseware store — the same PostgreSQL `DATABASE_URL` database the editor
+saves into, so agent sessions/events and courseware share the one database.
+When the runtime is not configured, the editor hides the panel and button and
+otherwise works normally.
+
 ### Optional: MP4 Video Export (Render Service)
 
 The "Export Video" menu builds a self-contained [Hyperframes](https://www.npmjs.com/package/@hyperframes/producer) project entirely in the browser. Turning that into an MP4 needs Chromium + FFmpeg on Node 22, so it runs in an isolated `render-service` container rather than the app.
@@ -516,7 +525,21 @@ TTS_VOXCPM_BASE_URL=http://localhost:8000/v1
 
 ---
 
+## 🏫 Teacher Operations Backend (师生分离 / 课件运营)
+
+This deployment splits content production from content consumption, with the shared PostgreSQL database as the server-side authority:
+
+- **Teacher backend** (`/teacher`, login required): create courses on the page — upload a **PPTX** (auto-converted, editable), import a **.maic.zip**, start **blank**, or **AI-generate** from a topic. Edit slides and scripts in the built-in editor (saves go straight to PostgreSQL), pre-generate narration audio in one click, and **publish** a frozen snapshot when ready. System settings (LLM/TTS/ASR keys) are configured in the backend (`/teacher/settings`, admin) and stored in the database — students never see a settings screen.
+- **Student surface** (`/` and `/classroom/[id]`): a published-course library and the classroom player, zero configuration. Students read the latest published snapshot; re-publishing a course updates every student automatically.
+
+### Database setup (one PostgreSQL for everything)
+
+The courseware backend, the agent runtime, and server-backed persistence all share the single PostgreSQL database from `DATABASE_URL` — there is no second database to run. Locally, `docker compose up postgres` provides one (the app falls back to `postgres://openmaic:openmaic-dev@127.0.0.1:5432/openmaic` when `DATABASE_URL` is unset); on Vercel, point `DATABASE_URL` at any managed Postgres such as Neon or Vercel Postgres.
+
+The schema and the first admin account are created automatically on first use. Log in at `/teacher/login` with `admin` / `Admin@123456` (or `TEACHER_BOOTSTRAP_PASSWORD`) and change it after first login. Course media bytes are stored in the database itself (`bytea`), so nothing depends on a writable server disk; published snapshots are immutable per version.
+
 ## ✨ Features
+
 
 ### Agent Workbench and Pro Mode (v1.0.0)
 

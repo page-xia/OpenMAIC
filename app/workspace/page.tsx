@@ -25,18 +25,38 @@
  *
  */
 import { Suspense } from 'react';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { isWorkbenchEntryEnabled } from '@/lib/workbench/entry-gate';
 import { WorkspaceEntry } from '@/components/workbench/WorkspaceEntry';
+import { TEACHER_COOKIE, verifyTeacherSessionToken } from '@/lib/server/teacher-auth';
 
 export const dynamic = 'force-dynamic';
 
-export default function WorkspacePage() {
+/**
+ * Where "退出 Pro" lands. The teacher session is an httpOnly cookie, invisible
+ * to `document.cookie`, so the destination is resolved here at route render —
+ * the signed token is read and verified on the server. A signed-in teacher's
+ * ordinary mode is their operations backend; everyone else (and a stale or
+ * forged token) returns to the student home.
+ */
+async function resolveExitHref(): Promise<string> {
+  const token = (await cookies()).get(TEACHER_COOKIE)?.value;
+  if (!token) return '/';
+  try {
+    return verifyTeacherSessionToken(token) ? '/teacher/courses' : '/';
+  } catch {
+    return '/';
+  }
+}
+
+export default async function WorkspacePage() {
   if (!isWorkbenchEntryEnabled()) redirect('/');
 
+  const exitHref = await resolveExitHref();
   return (
     <Suspense fallback={null}>
-      <WorkspaceEntry />
+      <WorkspaceEntry exitHref={exitHref} />
     </Suspense>
   );
 }

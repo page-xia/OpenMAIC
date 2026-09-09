@@ -14,6 +14,8 @@ interface CommandBarProps {
   readonly title: string;
   readonly history?: SurfaceHistory;
   readonly commands?: readonly EditorCommand[];
+  /** Optional affordance rendered right after the title (AI generate button). */
+  readonly titleAffix?: ReactNode;
   /**
    * Right-edge slot owned by Stage. In Pro mode it carries the
    * HeaderControls (settings pill + Pro Switch + Download) since Stage
@@ -33,7 +35,7 @@ interface CommandBarProps {
  * not a one-way state, so we deliberately do *not* place a "Done" pill
  * here that would compete with the Switch's affordance.
  */
-export function CommandBar({ title, history, commands, trailing }: CommandBarProps) {
+export function CommandBar({ title, history, commands, titleAffix, trailing }: CommandBarProps) {
   const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -67,6 +69,7 @@ export function CommandBar({ title, history, commands, trailing }: CommandBarPro
         >
           {title}
         </span>
+        {titleAffix}
       </div>
 
       <div className="flex shrink-0 items-center gap-2">

@@ -324,7 +324,8 @@
       "sceneIncomplete": "此頁面內容不完整",
       "addPage": "新增頁面",
       "nextPage": "下一頁",
-      "prevPage": "上一頁"
+      "prevPage": "上一頁",
+      "addPageButton": "新頁"
     },
     "zorder": {
       "toFront": "移至最上層",
@@ -644,6 +645,17 @@
     "dock": {
       "elementRefHint": "元素引用 —— 選取元素隨下一則訊息發給 Agent",
       "globalTools": "全域工具"
+    },
+    "assistant": {
+      "assistantGenerate": "AI 一鍵生成課程",
+      "assistantGenerateHint": "描述課程要求，AI 助理會自動生成或調整目前課件的頁面",
+      "assistantPanel": "AI 助理",
+      "assistantPanelExpand": "展開 AI 助理",
+      "assistantPanelCollapse": "收起 AI 助理",
+      "assistantRequirementLabel": "課程要求",
+      "assistantRequirementPlaceholder": "例如：給國中二年級學生講一節「光的折射」，45 分鐘，包含生活實例、2 道隨堂測驗和課堂小結",
+      "assistantSubmit": "開始生成",
+      "assistantUnavailable": "AI 助理不可用：未啟用 agent runtime（需要 OPENMAIC_AGENT_RUNTIME_ENABLED 與 DATABASE_URL）"
     }
   },
   "whiteboard": {
@@ -2031,5 +2043,39 @@
         "materialExtraction": null
       }
     }
+  },
+  "studentHome": {
+    "slogan": "多智能體互動課堂 · 開始學習",
+    "assistant": "AI 學習助教",
+    "assistantHint": "有任何問題都可以直接問",
+    "askPlaceholder": "例如：幫我講解一下什麼是勾股定理？",
+    "ask": "提問",
+    "thinking": "思考中",
+    "library": "課程庫",
+    "emptyLibrary": "老師還沒有發布課程，敬請期待。",
+    "addAttachment": "添加附件",
+    "attachmentParsing": "正在解析…",
+    "attachmentFailed": "解析失敗，無法用於提問",
+    "removeAttachment": "移除附件",
+    "attachmentContext": "已附 {{n}} 個文件",
+    "attachmentOnly": "請根據附件內容回答"
+  },
+  "teacherRail": {
+    "tabAll": "全部",
+    "tabDraft": "草稿",
+    "tabPublished": "已發布",
+    "navAria": "教師後台導覽",
+    "homeAria": "課件管理",
+    "brandSub": "教師後台",
+    "newCourse": "新增課件",
+    "tabsAria": "課件狀態",
+    "studentHome": "學生端首頁",
+    "logout": "登出",
+    "statusPublished": "已發布",
+    "statusDraft": "草稿",
+    "statusArchived": "已下架",
+    "coursesNav": "課件管理",
+    "invitesNav": "邀請碼",
+    "studentsNav": "學生管理"
   }
 }

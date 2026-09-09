@@ -17,10 +17,12 @@ import type { StageLinkLifecycleData } from '@/lib/agent-runtime/lifecycle';
 
 import type { AppDocumentOutline } from '@/lib/document-store/persistence-types';
 import { getServerPersistenceProvider } from '@/lib/persistence/server-provider';
+import { query as coursewareQuery } from '@/lib/server/db/pg';
 import type { CourseDocument, CourseStore } from './course-tools';
 import { folderIdForCall, stageIdForCall } from './course-stage';
 import { mergeStageOutline } from './course-outline-union';
 import { runStageMutation } from './mutation-fence';
+import { teacherIdFromOwner } from './owner';
 import { FOLDER_COUNT_LIMIT, validateFolderName } from '@/lib/utils/folder-name-validation';
 
 export { stageIdForCall } from './course-stage';
@@ -56,6 +58,15 @@ export async function probeStageAccess(
   stageId: string,
   queryable?: Queryable,
 ): Promise<StageAccess> {
+  // Teacher owners probe the courseware tables in the shared DATABASE_URL
+  // database instead of the PG stage_meta table: ownership is the
+  // `document_stages.owner_id` column itself and no tombstone concept exists
+  // there.
+  const teacherId = teacherIdFromOwner(ownerId);
+  if (teacherId) {
+    return probeTeacherStageAccess(teacherId, stageId);
+  }
+
   const db = (queryable ??
     (await getServerPersistenceProvider(process.env.DATABASE_URL ?? '')).pool) as Queryable;
   const rows = await db.query<StageProbeRow>(
@@ -71,6 +82,20 @@ export async function probeStageAccess(
   if (row.owner_id !== ownerId) return { kind: 'foreign' };
   if (row.deleted_at !== null) return { kind: 'tombstoned' };
   return { kind: 'owned', stage: { stageId, name: row.name } };
+}
+
+/** Courseware twin of {@link probeStageAccess} for `teacher:<tid>` owners. */
+export async function probeTeacherStageAccess(
+  teacherId: string,
+  stageId: string,
+): Promise<StageAccess> {
+  if (!/^[a-zA-Z0-9_-]+$/.test(stageId)) return { kind: 'missing' };
+  const rows = await coursewareQuery<{ id: string; name: string }>(
+    'SELECT id, name FROM document_stages WHERE id = $1 AND owner_id = $2',
+    [stageId, teacherId],
+  );
+  const row = rows[0];
+  return row ? { kind: 'owned', stage: { stageId: row.id, name: row.name } } : { kind: 'foreign' };
 }
 
 // ── Tool deps ─────────────────────────────────────────────────────────────────

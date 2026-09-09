@@ -551,12 +551,121 @@ function logConfig(config: ServerConfig, label: string): void {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Database overlay (teacher backend "system settings")
+//
+// The `server_providers` row in `system_settings` holds YamlData-shaped JSON.
+// It is merged OVER the yml file before buildConfig, so a provider configured
+// in the operations backend wins over the file, which itself wins over env
+// vars.
+//
+// Cross-instance convergence: Next compiles each route as its own entry, so
+// module state (this overlay and the config cache) is NOT shared between
+// routes. Writes refresh the writing instance immediately; every instance
+// re-reads the overlay at most `OVERLAY_TTL_MS` apart (stale-while-revalidate:
+// getConfig stays synchronous and serves the current cache while a refresh
+// runs in the background). A failed refresh keeps the previously loaded
+// overlay — a transient DB outage must not strip provider config.
+// ---------------------------------------------------------------------------
+
+const OVERLAY_TTL_MS = 10_000;
+
+let dbOverlay: YamlData = {};
+let overlayFetchedAt = 0;
+let overlayRefreshInFlight: Promise<void> | null = null;
+
+function mergeYamlData(base: YamlData, overlay: YamlData): YamlData {
+  const merged: YamlData = { ...base };
+  for (const key of Object.keys(overlay) as (keyof YamlData)[]) {
+    const overlaySection = overlay[key];
+    if (!overlaySection) continue;
+    merged[key] = { ...(base[key] ?? {}), ...overlaySection } as YamlData[typeof key];
+  }
+  return merged;
+}
+
+/** Read the `server_providers` setting into the overlay and drop the merged cache. */
+export async function refreshServerProviderConfigOverlay(): Promise<void> {
+  try {
+    const { getSystemSetting, SERVER_PROVIDERS_SETTING_KEY } = await import(
+      '@/lib/server/courseware/settings-repo'
+    );
+    const setting = await getSystemSetting<YamlData>(SERVER_PROVIDERS_SETTING_KEY);
+    dbOverlay =
+      setting?.value && typeof setting.value === 'object' && !Array.isArray(setting.value)
+        ? (setting.value as YamlData)
+        : {};
+  } catch {
+    // Keep the previously loaded overlay; retry after the TTL.
+  }
+  overlayFetchedAt = Date.now();
+  _configs.delete('');
+}
+
+function kickOverlayRefreshIfStale(): void {
+  if (Date.now() - overlayFetchedAt < OVERLAY_TTL_MS) return;
+  overlayRefreshInFlight ??= refreshServerProviderConfigOverlay().finally(() => {
+    overlayRefreshInFlight = null;
+  });
+}
+
+const OVERLAY_SECTION_TARGETS = {
+  providers: 'providers',
+  tts: 'tts',
+  asr: 'asr',
+  pdf: 'pdf',
+  image: 'image',
+  video: 'video',
+  webSearch: 'web-search',
+} as const;
+
+/**
+ * Apply overlay entries ON TOP of the env-merged sections. `loadEnvSection`
+ * lets env override the yaml/overlay merge (its historical precedence), but
+ * the operations backend is the operator's most explicit intent: a provider
+ * entry saved there must win over env as well. Disabled-only entries are
+ * already honored through `collectDisabledProviders` via the yaml merge.
+ */
+function applyOverlayOverrides(config: ServerConfig, overlay: YamlData): void {
+  for (const [section, yamlKey] of Object.entries(OVERLAY_SECTION_TARGETS)) {
+    const overlaySection = overlay[yamlKey];
+    if (!overlaySection) continue;
+    const target = config[
+      section as 'providers' | 'tts' | 'asr' | 'pdf' | 'image' | 'video' | 'webSearch'
+    ] as Record<string, ServerProviderEntry>;
+    for (const [id, entry] of Object.entries(overlaySection)) {
+      if (!entry || typeof entry !== 'object') continue;
+      const carriesIntent = entry.apiKey || entry.baseUrl || entry.models || entry.proxy;
+      if (!carriesIntent) continue;
+      const existing = target[id];
+      const models =
+        entry.models && entry.models.length > 0
+          ? entry.models
+          : existing?.models !== undefined
+            ? existing.models
+            : undefined;
+      target[id] = {
+        apiKey: entry.apiKey || existing?.apiKey || '',
+        ...((entry.baseUrl || existing?.baseUrl) && (entry.baseUrl || existing?.baseUrl)
+          ? { baseUrl: entry.baseUrl || existing?.baseUrl }
+          : {}),
+        ...(models ? { models } : {}),
+        ...((entry.proxy || existing?.proxy) && (entry.proxy || existing?.proxy)
+          ? { proxy: entry.proxy || existing?.proxy }
+          : {}),
+      };
+    }
+  }
+}
+
 function getConfig(): ServerConfig {
+  kickOverlayRefreshIfStale();
   const cached = _configs.get('');
   if (cached) return cached;
 
-  const yamlData = loadYamlFile(DEFAULT_FILENAME);
+  const yamlData = mergeYamlData(loadYamlFile(DEFAULT_FILENAME), dbOverlay);
   const config = buildConfig(yamlData);
+  applyOverlayOverrides(config, dbOverlay);
   logConfig(config, DEFAULT_FILENAME);
   _configs.set('', config);
   return config;

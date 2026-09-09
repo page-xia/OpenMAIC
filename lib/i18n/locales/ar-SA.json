@@ -375,7 +375,8 @@
       "sceneIncomplete": "محتوى هذه الصفحة غير مكتمل",
       "addPage": "إضافة صفحة",
       "nextPage": "الصفحة التالية",
-      "prevPage": "الصفحة السابقة"
+      "prevPage": "الصفحة السابقة",
+      "addPageButton": "صفحة جديدة"
     },
     "zorder": {
       "toFront": "إحضار إلى الأمام",
@@ -644,6 +645,17 @@
     "dock": {
       "elementRefHint": "مراجع العناصر — اختر عناصر لإرسالها مع رسالتك التالية",
       "globalTools": "أدوات عامة"
+    },
+    "assistant": {
+      "assistantGenerate": "توليد الدورة بالذكاء الاصطناعي",
+      "assistantGenerateHint": "صف الدورة؛ مساعد الذكاء الاصطناعي ينشئ أو يعدّل صفحات هذه الدورة",
+      "assistantPanel": "مساعد الذكاء الاصطناعي",
+      "assistantPanelExpand": "توسيع مساعد الذكاء الاصطناعي",
+      "assistantPanelCollapse": "طي مساعد الذكاء الاصطناعي",
+      "assistantRequirementLabel": "متطلبات الدورة",
+      "assistantRequirementPlaceholder": "مثال: درس 45 دقيقة عن انكسار الضوء لطلاب الصف الثامن، مع أمثلة واختبارين وملخص",
+      "assistantSubmit": "بدء التوليد",
+      "assistantUnavailable": "مساعد الذكاء الاصطناعي غير متاح: agent runtime غير مفعّل (يتطلب OPENMAIC_AGENT_RUNTIME_ENABLED و DATABASE_URL)"
     }
   },
   "classroomComplete": {
@@ -2031,5 +2043,39 @@
         "materialExtraction": null
       }
     }
+  },
+  "studentHome": {
+    "slogan": "Multi-Agent Interactive Classroom · Start Learning",
+    "assistant": "AI Study Assistant",
+    "assistantHint": "Ask anything, no setup needed",
+    "askPlaceholder": "e.g. Explain the Pythagorean theorem in simple terms",
+    "ask": "Ask",
+    "thinking": "Thinking",
+    "library": "Course Library",
+    "emptyLibrary": "No published courses yet — check back soon.",
+    "addAttachment": "Add attachment",
+    "attachmentParsing": "Parsing…",
+    "attachmentFailed": "Could not be parsed for questions",
+    "removeAttachment": "Remove attachment",
+    "attachmentContext": "{{n}} file(s) attached",
+    "attachmentOnly": "Please answer based on the attached files"
+  },
+  "teacherRail": {
+    "tabAll": "الكل",
+    "tabDraft": "مسودة",
+    "tabPublished": "منشور",
+    "navAria": "تنقل لوحة المعلم",
+    "homeAria": "الدورات",
+    "brandSub": "لوحة المعلم",
+    "newCourse": "دورة جديدة",
+    "tabsAria": "حالة الدورة",
+    "studentHome": "الرئيسية للطلاب",
+    "logout": "تسجيل الخروج",
+    "statusPublished": "منشور",
+    "statusDraft": "مسودة",
+    "statusArchived": "مؤرشف",
+    "coursesNav": "إدارة الدورات",
+    "invitesNav": "رموز الدعوة",
+    "studentsNav": "الطلاب"
   }
 }

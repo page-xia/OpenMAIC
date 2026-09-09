@@ -375,7 +375,8 @@
       "sceneIncomplete": "Содержимое этой страницы не заполнено",
       "addPage": "Добавить страницу",
       "nextPage": "Следующая страница",
-      "prevPage": "Предыдущая страница"
+      "prevPage": "Предыдущая страница",
+      "addPageButton": "Новая страница"
     },
     "zorder": {
       "toFront": "На передний план",
@@ -644,6 +645,17 @@
     "dock": {
       "elementRefHint": "Ссылки на элементы — выберите элементы для следующего сообщения",
       "globalTools": "Общие инструменты"
+    },
+    "assistant": {
+      "assistantGenerate": "Сгенерировать курс с ИИ",
+      "assistantGenerateHint": "Опишите курс — ИИ-ассистент создаст или изменит страницы этого курса",
+      "assistantPanel": "ИИ-ассистент",
+      "assistantPanelExpand": "Развернуть ИИ-ассистента",
+      "assistantPanelCollapse": "Свернуть ИИ-ассистента",
+      "assistantRequirementLabel": "Требования к курсу",
+      "assistantRequirementPlaceholder": "напр. урок на 45 мин о преломлении света для 8 класса: примеры из жизни, 2 теста и вывод",
+      "assistantSubmit": "Сгенерировать",
+      "assistantUnavailable": "ИИ-ассистент недоступен: agent runtime выключен (нужны OPENMAIC_AGENT_RUNTIME_ENABLED и DATABASE_URL)"
     }
   },
   "classroomComplete": {
@@ -2031,5 +2043,39 @@
         "materialExtraction": null
       }
     }
+  },
+  "studentHome": {
+    "slogan": "Multi-Agent Interactive Classroom · Start Learning",
+    "assistant": "AI Study Assistant",
+    "assistantHint": "Ask anything, no setup needed",
+    "askPlaceholder": "e.g. Explain the Pythagorean theorem in simple terms",
+    "ask": "Ask",
+    "thinking": "Thinking",
+    "library": "Course Library",
+    "emptyLibrary": "No published courses yet — check back soon.",
+    "addAttachment": "Add attachment",
+    "attachmentParsing": "Parsing…",
+    "attachmentFailed": "Could not be parsed for questions",
+    "removeAttachment": "Remove attachment",
+    "attachmentContext": "{{n}} file(s) attached",
+    "attachmentOnly": "Please answer based on the attached files"
+  },
+  "teacherRail": {
+    "tabAll": "Все",
+    "tabDraft": "Черновик",
+    "tabPublished": "Опубликовано",
+    "navAria": "Навигация консоли учителя",
+    "homeAria": "Курсы",
+    "brandSub": "Консоль учителя",
+    "newCourse": "Новый курс",
+    "tabsAria": "Статус курса",
+    "studentHome": "Домашняя учеников",
+    "logout": "Выйти",
+    "statusPublished": "Опубликовано",
+    "statusDraft": "Черновик",
+    "statusArchived": "В архиве",
+    "coursesNav": "Курсы",
+    "invitesNav": "Коды приглашений",
+    "studentsNav": "Ученики"
   }
 }

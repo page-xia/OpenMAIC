@@ -9,6 +9,9 @@ import {
   readClassroom,
 } from '@/lib/server/classroom-storage';
 import { sanitizeSceneContent } from '@/lib/server/sanitize-scene-content';
+import { getPublishedSnapshot } from '@/lib/server/courseware/course-repo';
+import { getStudentSession } from '@/lib/server/student-auth';
+import { getTeacherSession } from '@/lib/server/teacher-auth';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('Classroom API');
@@ -114,6 +117,29 @@ export async function GET(request: NextRequest) {
 
     if (!isValidClassroomId(id)) {
       return apiError(API_ERROR_CODES.INVALID_REQUEST, 400, 'Invalid classroom id');
+    }
+
+    // Courseware-backend courses are the authority when present: students (and
+    // teacher previews) read the latest published snapshot from PostgreSQL.
+    // Published content is the gated surface: a signed-in student or teacher
+    // reads it; everyone else gets 401 (the login page is the client-side
+    // redirect). Workbench classrooms stay on the filesystem branch below,
+    // which keeps the agent workspace's own pane flow untouched.
+    const snapshot = await getPublishedSnapshot(id).catch((error: unknown) => {
+      log.warn(`Published snapshot lookup failed [id=${id}]:`, error);
+      return null;
+    });
+    if (snapshot) {
+      if (!getStudentSession(request) && !getTeacherSession(request)) {
+        return apiError(API_ERROR_CODES.INVALID_REQUEST, 401, '请先登录后进入课堂');
+      }
+      return apiSuccess({
+        classroom: sanitizeSceneContent({
+          id: snapshot.courseId,
+          stage: snapshot.stage,
+          scenes: snapshot.scenes,
+        }),
+      });
     }
 
     const classroom = await readClassroom(id);

@@ -11,6 +11,7 @@ import { createOwnerBoundDocumentStore } from '@/lib/persistence/owner-bound-doc
 import { getServerPersistenceProvider } from '@/lib/persistence/server-provider';
 import type { AppScene } from '@/lib/types/stage';
 import type { Queryable } from '@openmaic/storage/document/pg';
+import { teacherIdFromOwner } from './owner';
 
 /**
  * The owner-bound document store for one HTTP request, plus the
@@ -36,6 +37,17 @@ export async function getOwnerScopedDocumentStore(
   ownerId: string,
   mutationFence?: (queryable: Queryable) => Promise<void>,
 ): Promise<OwnerScopedDocumentStore> {
+  // Teacher owners resolve to the courseware backend: the same store
+  // the teacher editor saves through, so agent writes and hand edits meet in
+  // one database. The folder/manifest gaps of that schema are filled by the
+  // adapter; the mutation fence is PG-lease-specific and does not apply.
+  const teacherId = teacherIdFromOwner(ownerId);
+  if (teacherId) {
+    const { documentStoreFor } = await import('@/lib/server/courseware/course-repo');
+    const { asTeacherAgentDocumentStore } = await import('./teacher-documents');
+    return asTeacherAgentDocumentStore(documentStoreFor(teacherId), teacherId);
+  }
+
   const { pool } = await getServerPersistenceProvider(process.env.DATABASE_URL ?? '');
   return withPlainJsonDocumentWrites(
     createOwnerBoundDocumentStore<AppScene, AppStage>({

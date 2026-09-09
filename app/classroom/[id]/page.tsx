@@ -1,6 +1,7 @@
 'use client';
 
 import { Stage } from '@/components/stage';
+import { StudentGate } from '@/components/student-gate';
 import { ThemeProvider } from '@/lib/hooks/use-theme';
 import { useStageStore } from '@/lib/store';
 import { useSettingsStore } from '@/lib/store/settings';
@@ -17,6 +18,7 @@ import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { fetchStageMeta } from '@/lib/classroom/stage-meta-client';
 import { noteStageOwnership } from '@/lib/classroom/stage-ownership-signal';
+import { syncPublishedCourseFreshness } from '@/lib/classroom/published-course-freshness';
 import {
   applyClassroomStageAndScenes,
   defaultClassroomLoadDeps,
@@ -30,11 +32,45 @@ export default function ClassroomDetailPage() {
   const classroomId = params?.id as string;
 
   const { loadFromStorage } = useStageStore();
+  const currentSceneId = useStageStore((state) => state.currentSceneId);
+  const scenes = useStageStore((state) => state.scenes);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const generationStartedRef = useRef(false);
+  const isStudentRef = useRef(false);
+
+  // Learning-progress beacon: a signed-in student's scene turns are reported
+  // to the teacher console (max order seen is kept server-side, so browsing
+  // back never regresses). Teachers/anonymous visitors report nothing.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/student/auth/me')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body: { student?: unknown } | null) => {
+        if (!cancelled) isStudentRef.current = !!body?.student;
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isStudentRef.current || !currentSceneId || !classroomId) return;
+    const scene = scenes.find((item) => item.id === currentSceneId);
+    if (!scene) return;
+    void fetch('/api/student/progress', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        courseId: classroomId,
+        sceneId: scene.id,
+        sceneOrder: Math.round(scene.order),
+      }),
+    }).catch(() => undefined);
+  }, [currentSceneId, scenes, classroomId]);
 
   const { generateRemaining, retrySingleOutline, stop } = useSceneGenerator({
     onComplete: () => {
@@ -46,6 +82,13 @@ export default function ClassroomDetailPage() {
     async (isEffectCurrent: () => boolean = () => true) => {
       const loadToken = claimStageSceneLoadToken();
       const isCurrent = () => isEffectCurrent() && isCurrentStageSceneLoadToken(loadToken);
+
+      // Published (server-authoritative) courses: drop a local copy that
+      // predates a newer publication BEFORE the load, so the pipeline fetches
+      // the fresh snapshot. Students of published courses are read-only; a
+      // signed-in teacher keeps the preview/edit affordances.
+      const published = await syncPublishedCourseFreshness(classroomId).catch(() => null);
+      if (!isCurrent()) return;
 
       await runClassroomLoad({
         classroomId,
@@ -74,6 +117,15 @@ export default function ClassroomDetailPage() {
         setLoading,
         log,
       });
+
+      // Published courses without a sidecar answer: students are read-only
+      // viewers of the frozen snapshot; teachers previewing their own course
+      // keep editing. Applied after the load so it wins over the load's
+      // single-user default.
+      if (isEffectCurrent() && published && !published.teacherPreview) {
+        noteStageOwnership(classroomId, true, { isOwner: false });
+        useStageStore.getState().setViewerAccess({ isOwner: false });
+      }
 
       // The stage-meta sidecar resolves the viewer-facing ownership facts the
       // document seam does not carry — `isOwner` decides read-only vs editable
@@ -221,8 +273,9 @@ export default function ClassroomDetailPage() {
   }, [loading, error, generateRemaining]);
 
   return (
-    <ThemeProvider>
-      <MediaStageProvider value={classroomId}>
+    <StudentGate>
+      <ThemeProvider>
+        <MediaStageProvider value={classroomId}>
         <div className="h-screen flex flex-col overflow-hidden">
           {loading ? (
             <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -252,5 +305,6 @@ export default function ClassroomDetailPage() {
         </div>
       </MediaStageProvider>
     </ThemeProvider>
+    </StudentGate>
   );
 }

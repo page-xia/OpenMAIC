@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { SceneRenderer } from '@/components/stage/scene-renderer';
+import { SceneProvider } from '@/lib/contexts/scene-context';
 import { useStageStore } from '@/lib/store/stage';
 import type { Scene, SceneContent } from '@/lib/types/stage';
 import type { SceneEditorSurface, SurfaceState } from './scene-editor-surface';
@@ -35,7 +36,13 @@ function NoopCanvas() {
   );
 
   if (!scene) return null;
-  return <SceneRenderer scene={scene} mode="playback" />;
+  // SceneRenderer's playback slide canvas reads the scene context; the shell
+  // mounts this fallback OUTSIDE CanvasArea's provider, so provide it here.
+  return (
+    <SceneProvider>
+      <SceneRenderer scene={scene} mode="playback" />
+    </SceneProvider>
+  );
 }
 
 const EMPTY_STATE: SurfaceState<SceneContent, undefined> = {

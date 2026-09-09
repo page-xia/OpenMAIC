@@ -375,7 +375,8 @@
       "sceneIncomplete": "本页内容不完整",
       "addPage": "新增页面",
       "nextPage": "下一页",
-      "prevPage": "上一页"
+      "prevPage": "上一页",
+      "addPageButton": "新页"
     },
     "zorder": {
       "toFront": "置于顶层",
@@ -644,6 +645,17 @@
     "dock": {
       "elementRefHint": "元素引用 —— 选中元素随下一条消息发给 Agent",
       "globalTools": "全局工具"
+    },
+    "assistant": {
+      "assistantGenerate": "AI 一键生成课程",
+      "assistantGenerateHint": "描述课程要求，AI 助理会自动生成或调整当前课件的页面",
+      "assistantPanel": "AI 助理",
+      "assistantPanelExpand": "展开 AI 助理",
+      "assistantPanelCollapse": "收起 AI 助理",
+      "assistantRequirementLabel": "课程要求",
+      "assistantRequirementPlaceholder": "例如：给初中二年级学生讲一节「光的折射」，45 分钟，包含生活实例、2 道随堂测验和课堂小结",
+      "assistantSubmit": "开始生成",
+      "assistantUnavailable": "AI 助理不可用：未启用 agent runtime（需要 OPENMAIC_AGENT_RUNTIME_ENABLED 与 DATABASE_URL）"
     }
   },
   "classroomComplete": {
@@ -2031,5 +2043,39 @@
         "materialExtraction": null
       }
     }
+  },
+  "studentHome": {
+    "slogan": "多智能体互动课堂 · 开始学习",
+    "assistant": "AI 学习助教",
+    "assistantHint": "有任何问题都可以直接问",
+    "askPlaceholder": "例如：帮我讲解一下什么是勾股定理？",
+    "ask": "提问",
+    "thinking": "思考中",
+    "library": "课程库",
+    "emptyLibrary": "老师还没有发布课程，敬请期待。",
+    "addAttachment": "添加附件",
+    "attachmentParsing": "正在解析…",
+    "attachmentFailed": "解析失败，无法用于提问",
+    "removeAttachment": "移除附件",
+    "attachmentContext": "已附 {{n}} 个文件",
+    "attachmentOnly": "请根据附件内容回答"
+  },
+  "teacherRail": {
+    "tabAll": "全部",
+    "tabDraft": "草稿",
+    "tabPublished": "已发布",
+    "navAria": "教师后台导航",
+    "homeAria": "课件管理",
+    "brandSub": "教师后台",
+    "newCourse": "新建课件",
+    "tabsAria": "课件状态",
+    "studentHome": "学生端首页",
+    "logout": "退出登录",
+    "statusPublished": "已发布",
+    "statusDraft": "草稿",
+    "statusArchived": "已下架",
+    "coursesNav": "课件管理",
+    "invitesNav": "邀请码",
+    "studentsNav": "学生管理"
   }
 }

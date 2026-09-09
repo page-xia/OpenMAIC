@@ -375,7 +375,8 @@
       "sceneIncomplete": "Diese Seite enthält unvollständige Inhalte",
       "addPage": "Seite hinzufügen",
       "nextPage": "Next page",
-      "prevPage": "Previous page"
+      "prevPage": "Previous page",
+      "addPageButton": "Neue Seite"
     },
     "zorder": {
       "toFront": "In den Vordergrund",
@@ -644,6 +645,17 @@
     "dock": {
       "elementRefHint": "Elementverweise – Elemente für die nächste Nachricht auswählen",
       "globalTools": "Globale Werkzeuge"
+    },
+    "assistant": {
+      "assistantGenerate": "KI-Kurs generieren",
+      "assistantGenerateHint": "Beschreibe den Kurs; der KI-Assistent erzeugt oder passt die Seiten dieses Kurses an",
+      "assistantPanel": "KI-Assistent",
+      "assistantPanelExpand": "KI-Assistent ausklappen",
+      "assistantPanelCollapse": "KI-Assistent einklappen",
+      "assistantRequirementLabel": "Kursanforderungen",
+      "assistantRequirementPlaceholder": "z. B. eine 45-minütige Unterrichtsstunde zur Lichtbrechung für die 8. Klasse, mit Beispielen, 2 Quizfragen und einer Zusammenfassung",
+      "assistantSubmit": "Generieren",
+      "assistantUnavailable": "KI-Assistent nicht verfügbar: Agent-Runtime deaktiviert (OPENMAIC_AGENT_RUNTIME_ENABLED und DATABASE_URL erforderlich)"
     }
   },
   "classroomComplete": {
@@ -2031,5 +2043,39 @@
         "materialExtraction": null
       }
     }
+  },
+  "studentHome": {
+    "slogan": "Multi-Agent Interactive Classroom · Start Learning",
+    "assistant": "AI Study Assistant",
+    "assistantHint": "Ask anything, no setup needed",
+    "askPlaceholder": "e.g. Explain the Pythagorean theorem in simple terms",
+    "ask": "Ask",
+    "thinking": "Thinking",
+    "library": "Course Library",
+    "emptyLibrary": "No published courses yet — check back soon.",
+    "addAttachment": "Add attachment",
+    "attachmentParsing": "Parsing…",
+    "attachmentFailed": "Could not be parsed for questions",
+    "removeAttachment": "Remove attachment",
+    "attachmentContext": "{{n}} file(s) attached",
+    "attachmentOnly": "Please answer based on the attached files"
+  },
+  "teacherRail": {
+    "tabAll": "Alle",
+    "tabDraft": "Entwurf",
+    "tabPublished": "Veröffentlicht",
+    "navAria": "Lehrer-Konsole Navigation",
+    "homeAria": "Kurse",
+    "brandSub": "Lehrer-Konsole",
+    "newCourse": "Neuer Kurs",
+    "tabsAria": "Kursstatus",
+    "studentHome": "Schüler-Startseite",
+    "logout": "Abmelden",
+    "statusPublished": "Veröffentlicht",
+    "statusDraft": "Entwurf",
+    "statusArchived": "Archiviert",
+    "coursesNav": "Kurse",
+    "invitesNav": "Einladungscodes",
+    "studentsNav": "Schüler"
   }
 }

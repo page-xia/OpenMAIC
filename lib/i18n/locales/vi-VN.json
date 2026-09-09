@@ -375,7 +375,8 @@
       "sceneIncomplete": "Trang này còn thiếu nội dung",
       "addPage": "Thêm trang",
       "nextPage": "Trang sau",
-      "prevPage": "Trang trước"
+      "prevPage": "Trang trước",
+      "addPageButton": "Trang mới"
     },
     "zorder": {
       "toFront": "Đưa lên trên cùng",
@@ -644,6 +645,17 @@
     "dock": {
       "elementRefHint": "Tham chiếu phần tử — chọn phần tử để gửi kèm tin nhắn tiếp theo",
       "globalTools": "Công cụ chung"
+    },
+    "assistant": {
+      "assistantGenerate": "Tạo khóa học bằng AI",
+      "assistantGenerateHint": "Mô tả khóa học; trợ lý AI sẽ tạo hoặc điều chỉnh các trang của khóa học này",
+      "assistantPanel": "Trợ lý AI",
+      "assistantPanelExpand": "Mở rộng trợ lý AI",
+      "assistantPanelCollapse": "Thu gọn trợ lý AI",
+      "assistantRequirementLabel": "Yêu cầu khóa học",
+      "assistantRequirementPlaceholder": "vd. bài học 45 phút về khúc xạ ánh sáng cho học sinh lớp 8, kèm ví dụ thực tế, 2 câu hỏi trắc nghiệm và tóm tắt",
+      "assistantSubmit": "Bắt đầu tạo",
+      "assistantUnavailable": "Trợ lý AI không khả dụng: agent runtime chưa bật (cần OPENMAIC_AGENT_RUNTIME_ENABLED và DATABASE_URL)"
     }
   },
   "classroomComplete": {
@@ -2031,5 +2043,39 @@
         "materialExtraction": null
       }
     }
+  },
+  "studentHome": {
+    "slogan": "Multi-Agent Interactive Classroom · Start Learning",
+    "assistant": "AI Study Assistant",
+    "assistantHint": "Ask anything, no setup needed",
+    "askPlaceholder": "e.g. Explain the Pythagorean theorem in simple terms",
+    "ask": "Ask",
+    "thinking": "Thinking",
+    "library": "Course Library",
+    "emptyLibrary": "No published courses yet — check back soon.",
+    "addAttachment": "Add attachment",
+    "attachmentParsing": "Parsing…",
+    "attachmentFailed": "Could not be parsed for questions",
+    "removeAttachment": "Remove attachment",
+    "attachmentContext": "{{n}} file(s) attached",
+    "attachmentOnly": "Please answer based on the attached files"
+  },
+  "teacherRail": {
+    "tabAll": "Tất cả",
+    "tabDraft": "Bản nháp",
+    "tabPublished": "Đã xuất bản",
+    "navAria": "Điều hướng bảng giáo viên",
+    "homeAria": "Khóa học",
+    "brandSub": "Bảng giáo viên",
+    "newCourse": "Khóa học mới",
+    "tabsAria": "Trạng thái khóa học",
+    "studentHome": "Trang học sinh",
+    "logout": "Đăng xuất",
+    "statusPublished": "Đã xuất bản",
+    "statusDraft": "Bản nháp",
+    "statusArchived": "Đã lưu trữ",
+    "coursesNav": "Quản lý khóa học",
+    "invitesNav": "Mã mời",
+    "studentsNav": "Học sinh"
   }
 }

@@ -375,7 +375,8 @@
       "sceneIncomplete": "This page has incomplete content",
       "addPage": "Add page",
       "nextPage": "Next page",
-      "prevPage": "Previous page"
+      "prevPage": "Previous page",
+      "addPageButton": "New page"
     },
     "zorder": {
       "toFront": "Bring to front",
@@ -644,6 +645,17 @@
     "dock": {
       "elementRefHint": "Element references — pick elements to send with your next message",
       "globalTools": "Global tools"
+    },
+    "assistant": {
+      "assistantGenerate": "AI: Generate Course",
+      "assistantGenerateHint": "Describe the course; the AI assistant generates or adjusts this course's pages",
+      "assistantPanel": "AI Assistant",
+      "assistantPanelExpand": "Expand AI assistant",
+      "assistantPanelCollapse": "Collapse AI assistant",
+      "assistantRequirementLabel": "Course requirements",
+      "assistantRequirementPlaceholder": "e.g. a 45-minute lesson on refraction of light for 8th graders, with real-life examples, 2 quizzes and a summary",
+      "assistantSubmit": "Generate",
+      "assistantUnavailable": "AI assistant unavailable: agent runtime not enabled (requires OPENMAIC_AGENT_RUNTIME_ENABLED and DATABASE_URL)"
     }
   },
   "classroomComplete": {
@@ -2031,5 +2043,39 @@
         "materialExtraction": null
       }
     }
+  },
+  "studentHome": {
+    "slogan": "Multi-Agent Interactive Classroom · Start Learning",
+    "assistant": "AI Study Assistant",
+    "assistantHint": "Ask anything, no setup needed",
+    "askPlaceholder": "e.g. Explain the Pythagorean theorem in simple terms",
+    "ask": "Ask",
+    "thinking": "Thinking",
+    "library": "Course Library",
+    "emptyLibrary": "No published courses yet — check back soon.",
+    "addAttachment": "Add attachment",
+    "attachmentParsing": "Parsing…",
+    "attachmentFailed": "Could not be parsed for questions",
+    "removeAttachment": "Remove attachment",
+    "attachmentContext": "{{n}} file(s) attached",
+    "attachmentOnly": "Please answer based on the attached files"
+  },
+  "teacherRail": {
+    "tabAll": "All",
+    "tabDraft": "Draft",
+    "tabPublished": "Published",
+    "navAria": "Teacher console navigation",
+    "homeAria": "Courses",
+    "brandSub": "Teacher console",
+    "newCourse": "New course",
+    "tabsAria": "Course status",
+    "studentHome": "Student home",
+    "logout": "Sign out",
+    "statusPublished": "Published",
+    "statusDraft": "Draft",
+    "statusArchived": "Archived",
+    "coursesNav": "Courses",
+    "invitesNav": "Invite codes",
+    "studentsNav": "Students"
   }
 }

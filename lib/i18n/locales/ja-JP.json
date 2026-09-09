@@ -375,7 +375,8 @@
       "sceneIncomplete": "このページの内容が未完成です",
       "addPage": "ページを追加",
       "nextPage": "次のページ",
-      "prevPage": "前のページ"
+      "prevPage": "前のページ",
+      "addPageButton": "新規ページ"
     },
     "zorder": {
       "toFront": "最前面へ移動",
@@ -644,6 +645,17 @@
     "dock": {
       "elementRefHint": "要素参照 — 次のメッセージと一緒に送る要素を選ぶ",
       "globalTools": "全体ツール"
+    },
+    "assistant": {
+      "assistantGenerate": "AIでコース生成",
+      "assistantGenerateHint": "コースの要件を伝えると、AIアシスタントがこのコースのページを生成・調整します",
+      "assistantPanel": "AIアシスタント",
+      "assistantPanelExpand": "AIアシスタントを展開",
+      "assistantPanelCollapse": "AIアシスタントを折りたたむ",
+      "assistantRequirementLabel": "コースの要件",
+      "assistantRequirementPlaceholder": "例：中学2年生向けに「光の屈折」を45分で。身近な例、小テスト2問、まとめを含める",
+      "assistantSubmit": "生成開始",
+      "assistantUnavailable": "AIアシスタントは利用できません：agent runtime が無効です（OPENMAIC_AGENT_RUNTIME_ENABLED と DATABASE_URL が必要）"
     }
   },
   "classroomComplete": {
@@ -2031,5 +2043,39 @@
         "materialExtraction": null
       }
     }
+  },
+  "studentHome": {
+    "slogan": "Multi-Agent Interactive Classroom · Start Learning",
+    "assistant": "AI Study Assistant",
+    "assistantHint": "Ask anything, no setup needed",
+    "askPlaceholder": "e.g. Explain the Pythagorean theorem in simple terms",
+    "ask": "Ask",
+    "thinking": "Thinking",
+    "library": "Course Library",
+    "emptyLibrary": "No published courses yet — check back soon.",
+    "addAttachment": "Add attachment",
+    "attachmentParsing": "Parsing…",
+    "attachmentFailed": "Could not be parsed for questions",
+    "removeAttachment": "Remove attachment",
+    "attachmentContext": "{{n}} file(s) attached",
+    "attachmentOnly": "Please answer based on the attached files"
+  },
+  "teacherRail": {
+    "tabAll": "すべて",
+    "tabDraft": "下書き",
+    "tabPublished": "公開済み",
+    "navAria": "教師コンソールのナビゲーション",
+    "homeAria": "コース",
+    "brandSub": "教師コンソール",
+    "newCourse": "コースを新規作成",
+    "tabsAria": "コースの状態",
+    "studentHome": "生徒ホーム",
+    "logout": "サインアウト",
+    "statusPublished": "公開済み",
+    "statusDraft": "下書き",
+    "statusArchived": "アーカイブ",
+    "coursesNav": "コース管理",
+    "invitesNav": "招待コード",
+    "studentsNav": "学生管理"
   }
 }

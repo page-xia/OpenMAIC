@@ -5,6 +5,7 @@ import { EditShell } from '@/components/edit/EditShell';
 import { SlideNavRail } from '@/components/edit/SlideNavRail';
 import { EditDock } from '@/components/edit/EditDock/EditDock';
 import { HeaderControls } from '@/components/stage/header-controls';
+import { EditorAssistantGenerateButton } from '@/components/edit/EditorAssistantGenerateButton';
 import { isMaicEditorEnabled } from '@/lib/config/feature-flags';
 import { preloadEditor } from '@/lib/edit/preload-editor';
 import { sceneEditorRegistry } from '@/lib/edit/scene-editor-registry';
@@ -111,6 +112,7 @@ export function EditChromeRoot({ scene, isEditable, onToggleEditMode }: EditChro
     <EditShell
       scene={scene}
       leftRail={<SlideNavRail />}
+      titleAffix={inWorkbenchPanel ? undefined : <EditorAssistantGenerateButton />}
       bottomRail={
         timelineEnabled ? (
           <EditDock sceneId={scene.id} sceneType={scene.type} pager={pager} />

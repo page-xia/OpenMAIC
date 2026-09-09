@@ -10,7 +10,6 @@ import { I18nProvider } from '@/lib/hooks/use-i18n';
 import { Toaster } from '@/components/ui/sonner';
 import { ServerProvidersInit } from '@/components/server-providers-init';
 import { StorageHealthNotice } from '@/components/storage-health-notice';
-import { AccessCodeGuard } from '@/components/access-code-guard';
 import { ProSwapWatcher } from '@/components/workbench/ProSwapWatcher';
 
 // The UI font is loaded from @fontsource's stylesheet rather than next/font,
@@ -31,7 +30,7 @@ import '@fontsource-variable/inter';
 export const metadata: Metadata = {
   title: 'OpenMAIC',
   description:
-    'The open-source AI interactive classroom. Upload a PDF to instantly generate an immersive, multi-agent learning experience.',
+    'AI interactive classroom. Upload a PDF to instantly generate an immersive, multi-agent learning experience.',
 };
 
 export default function RootLayout({
@@ -49,7 +48,11 @@ export default function RootLayout({
           <I18nProvider>
             <ServerProvidersInit />
             <ProSwapWatcher />
-            <AccessCodeGuard>{children}</AccessCodeGuard>
+            {/* The legacy ACCESS_CODE gate was retired: the student
+                login/registration system (with invite codes) is the entry
+                boundary now. Homepage features prompt anonymous visitors to
+                sign in at the point of use. */}
+            {children}
             <Toaster position="top-center" />
             {/* After the Toaster: this one raises a toast on mount when
                 persistence is already broken, and a toast raised before its

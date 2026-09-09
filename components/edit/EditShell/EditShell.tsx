@@ -36,6 +36,8 @@ interface EditShellProps {
    * is hidden, so the entire top chrome reduces to a single bar.
    */
   readonly commandTrailing?: ReactNode;
+  /** Optional affordance rendered right after the CommandBar title. */
+  readonly titleAffix?: ReactNode;
   /**
    * Page pager for the canvas (‹ n/m › scene flipper), in its FLOATING form.
    * Passed down uninterpreted — the chrome stays pure; `EditChromeRoot` computes
@@ -87,6 +89,7 @@ export function EditShell({
   scene,
   leftRail,
   commandTrailing,
+  titleAffix,
   bottomRail,
   pager,
   hideCommandBar,
@@ -128,6 +131,7 @@ export function EditShell({
         history={state?.history}
         commands={state?.commands}
         trailing={commandTrailing}
+        titleAffix={titleAffix}
         bottomRail={bottomRail}
         pager={pager}
         hideCommandBar={hideCommandBar}
@@ -258,6 +262,7 @@ interface FrameProps {
   readonly leftRail?: ReactNode;
   readonly history?: React.ComponentProps<typeof CommandBar>['history'];
   readonly commands?: React.ComponentProps<typeof CommandBar>['commands'];
+  readonly titleAffix?: ReactNode;
   readonly trailing?: ReactNode;
   readonly bottomRail?: ReactNode;
   readonly pager?: CanvasPagerProps;
@@ -271,6 +276,7 @@ function Frame({
   leftRail,
   history,
   commands,
+  titleAffix,
   trailing,
   bottomRail,
   pager,
@@ -312,7 +318,13 @@ function Frame({
             animate={cmdAnimate}
             transition={{ ...stepTransition, delay: prefersReducedMotion ? 0 : COMMANDBAR_DELAY }}
           >
-            <CommandBar title={title} history={history} commands={commands} trailing={trailing} />
+            <CommandBar
+              title={title}
+              history={history}
+              commands={commands}
+              trailing={trailing}
+              titleAffix={titleAffix}
+            />
           </motion.div>
         )
       }

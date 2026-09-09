@@ -20,6 +20,25 @@ export async function register(): Promise<void> {
     await import('@/lib/persistence/asset-collector-schedule');
   const assetSchedule = startAssetCollectorSchedule();
 
+  // Courseware backend: warm the shared PostgreSQL database/schema lazily.
+  // `register` must not block on I/O, so the memoized bootstrap promise is
+  // only kicked off here; the first request that needs it re-awaits the same
+  // promise.
+  const { ensureCoursewareDatabase } = await import('@/lib/server/db/pg');
+  ensureCoursewareDatabase()
+    .then(async () => {
+      // The teacher backend's provider settings live in the courseware
+      // database; layer them over yml/env as soon as the schema exists.
+      const { refreshServerProviderConfigOverlay } = await import('@/lib/server/provider-config');
+      await refreshServerProviderConfigOverlay();
+    })
+    .catch((error: unknown) => {
+      console.error(
+        '[instrumentation] Courseware database bootstrap failed (will retry on use)',
+        error,
+      );
+    });
+
   // Warn-first boot-time validation of model routing config (MODEL_ROUTES,
   // DEFAULT_MODEL, <PREFIX>_MODELS). Cheap and non-throwing: broken config
   // surfaces here as [config] warnings instead of failing at request time.
@@ -89,6 +108,12 @@ export async function register(): Promise<void> {
         } catch (error) {
           console.error('[instrumentation] Persistence pool shutdown failed', error);
         }
+      }
+      try {
+        const { closeCoursewarePool } = await import('@/lib/server/db/pg');
+        await closeCoursewarePool();
+      } catch (error) {
+        console.error('[instrumentation] Courseware pool shutdown failed', error);
       }
     })();
     return shutdownPromise;

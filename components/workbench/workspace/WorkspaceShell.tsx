@@ -156,17 +156,31 @@ function syncAttachedSessionTitle(sessionId: string, title: string | null): void
 }
 
 /**
+ * Where "退出 Pro" lands. A signed-in teacher's ordinary mode is their
+ * operations backend; everyone else returns to the student home. The teacher
+ * session cookie is httpOnly — invisible to `document.cookie` — so the
+ * destination is resolved server-side at route render (`app/workspace/page.tsx`)
+ * and handed down as `exitHref`.
+ */
+
+/**
  * Route seam: capture the deep link exactly once. Native History API writes
  * update Next's search-param readers, while the controller below keeps its own
  * live pane state and never treats those mirrored values as a second writer.
  */
-export function WorkspaceShell() {
+export function WorkspaceShell({ exitHref }: { readonly exitHref: string }) {
   const searchParams = useSearchParams();
   const [initialPanes] = useState(() => readWorkspacePanes(searchParams));
-  return <WorkspaceShellController initialPanes={initialPanes} />;
+  return <WorkspaceShellController initialPanes={initialPanes} exitHref={exitHref} />;
 }
 
-function WorkspaceShellController({ initialPanes }: { readonly initialPanes: WorkspacePanes }) {
+function WorkspaceShellController({
+  initialPanes,
+  exitHref,
+}: {
+  readonly initialPanes: WorkspacePanes;
+  readonly exitHref: string;
+}) {
   const { t } = useI18n();
   const router = useRouter();
   const navigation = useWorkspacePaneNavigation(initialPanes);
@@ -644,8 +658,10 @@ function WorkspaceShellController({ initialPanes }: { readonly initialPanes: Wor
   // Leaving Pro is a state change: the two surfaces crossfade while the
   // lockup stays fixed. `startProSwap` falls back to a plain push where the
   // browser has no View Transitions or the user asked for less motion, and
-  // swallows a second click while one swap is already running.
-  const exitPro = () => startProSwap('/', (href) => router.push(href));
+  // swallows a second click while one swap is already running. The teacher
+  // operations backend is the "normal mode" destination when a teacher
+  // session is present; the student home remains the fallback.
+  const exitPro = () => startProSwap(exitHref, (href) => router.push(href));
   /**
    * Back to the bare workspace: both panes dropped, the composer refocused.
    *
