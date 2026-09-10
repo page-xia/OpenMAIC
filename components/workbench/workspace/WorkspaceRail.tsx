@@ -196,6 +196,7 @@ export function WorkspaceRail({
   onSessionDeleted,
   onRenameSession,
   onDeleteCourse,
+  isTeacherSurface,
   resizeHandle,
 }: {
   readonly courses: Discovery;
@@ -227,6 +228,12 @@ export function WorkspaceRail({
   readonly onRenameSession: (sessionId: string, title: string) => Promise<string | null>;
   /** The shell deletes the course AND closes its classroom tab on success. */
   readonly onDeleteCourse: (courseId: string) => Promise<void> | void;
+  /**
+   * Whether this rail belongs to a signed-in teacher. Passed through to the
+   * settings dialog so its teacher-only sections (the deployment default model)
+   * appear only on the operations surface.
+   */
+  readonly isTeacherSurface: boolean;
   /** The width drag, owned by the shell (it writes the CSS variable on the root). */
   readonly resizeHandle: ReactNode;
 }) {
@@ -1202,6 +1209,7 @@ export function WorkspaceRail({
         onOpenChange={(next) => {
           setSettingsOpen(next);
         }}
+        surface={isTeacherSurface ? 'teacher' : 'student'}
       />
 
       {/* Deleting a folder does something to the courses inside it, so it is

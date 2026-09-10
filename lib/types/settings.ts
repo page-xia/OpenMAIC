@@ -4,6 +4,7 @@ export type SettingsSection =
   | 'general'
   | 'token-plan'
   | 'providers'
+  | 'default-model'
   | 'agents'
   | 'tts'
   | 'asr'

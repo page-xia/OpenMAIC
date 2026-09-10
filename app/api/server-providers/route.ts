@@ -6,6 +6,7 @@ import {
   getServerImageProviders,
   getServerVideoProviders,
   getServerWebSearchProviders,
+  getServerDefaultModel,
   getParallelSceneConcurrency,
 } from '@/lib/server/provider-config';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
@@ -26,6 +27,10 @@ export async function GET() {
       generation: {
         parallelSceneConcurrency: getParallelSceneConcurrency(),
       },
+      // The operator's deployment-wide default model ("provider:model").
+      // Every client adopts it on first sync so students open on the model the
+      // teacher picked instead of whichever provider sorts first.
+      defaultModel: (await getServerDefaultModel()) ?? null,
     });
   } catch (error) {
     log.error('Error fetching server providers:', error);

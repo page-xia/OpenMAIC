@@ -1886,7 +1886,9 @@
     },
     "ttsBrowserNativeTimelineNotice": "Browser-native TTS doesn't support the editor timeline's audio features (preview, regenerate, and bulk voiceover). Switch to a managed TTS provider to generate and manage per-line audio.",
     "alidocmindAccessKeyId": "AccessKey ID",
-    "alidocmindAccessKeySecret": "AccessKey Secret"
+    "alidocmindAccessKeySecret": "AccessKey Secret",
+    "defaultModelFollowSystem": "Follow system default",
+    "defaultModelServerHint": "Only server-configured providers are listed. Students and generation stages without their own model use the model selected here; `Follow system default` falls back to the server picking by provider order."
   },
   "workspace": {
     "untitledCourse": "Untitled course",

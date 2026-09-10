@@ -1,4 +1,5 @@
 import { nanoid } from 'nanoid';
+import { isActionType } from '@openmaic/dsl';
 import type { Action, Slide, SlideTheme } from '@openmaic/dsl';
 import type { SceneOutline } from './outline-types.js';
 import type {
@@ -32,6 +33,13 @@ export function buildCompleteScene(
 ): CompleteScene | null {
   const sceneId = options.sceneId ?? nanoid();
   const timestamps = { createdAt: Date.now(), updatedAt: Date.now() };
+  // Last line of defense before a scene is handed to a consumer's storage: an
+  // Action whose `type` is not a real ActionType makes the whole document
+  // invalid, and a document-level rejection is far worse than losing one stray
+  // action (it is what surfaced as "@openmaic/storage: invalid scene ... unknown
+  // action type"). Callers that know the scene type already filter earlier; this
+  // covers any path that builds a scene directly from model output.
+  const safeActions = actions.filter((action) => isActionType(action.type));
 
   if (outline.type === 'slide' && 'elements' in content) {
     const defaultTheme: SlideTheme = {
@@ -58,7 +66,7 @@ export function buildCompleteScene(
       title: outline.title,
       order: outline.order,
       content: { type: 'slide', canvas },
-      actions,
+      actions: safeActions,
       ...timestamps,
     };
   }
@@ -72,7 +80,7 @@ export function buildCompleteScene(
       title: outline.title,
       order: outline.order,
       content: { type: 'quiz', questions: content.questions },
-      actions,
+      actions: safeActions,
       ...timestamps,
     };
   }
@@ -92,7 +100,7 @@ export function buildCompleteScene(
         widgetType: content.widgetType,
         widgetConfig: content.widgetConfig,
       },
-      actions,
+      actions: safeActions,
       ...timestamps,
     };
   }
@@ -106,7 +114,7 @@ export function buildCompleteScene(
       title: outline.title,
       order: outline.order,
       content: { type: 'pbl', projectV2: content.projectV2 },
-      actions,
+      actions: safeActions,
       ...timestamps,
     };
   }

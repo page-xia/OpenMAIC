@@ -75,6 +75,8 @@ interface PublishedCourse {
   sceneCount: number;
   publishedAt: number;
   version: number;
+  /** Course cover image URL; null when the teacher has not set one yet. */
+  coverUrl: string | null;
 }
 
 interface ChatBubble {
@@ -543,9 +545,7 @@ export default function StudentHomePage() {
         if (!cancelled) {
           setAttachments((prev) =>
             prev.map((entry) =>
-              entry.id === item.id
-                ? { ...entry, status: 'failed', error: failureReason }
-                : entry,
+              entry.id === item.id ? { ...entry, status: 'failed', error: failureReason } : entry,
             ),
           );
         }
@@ -854,7 +854,8 @@ export default function StudentHomePage() {
                       <p className="text-sm font-medium truncate">{item.file.name}</p>
                       <p className="text-xs text-muted-foreground">
                         {item.status === 'parsing' && t('studentHome.attachmentParsing')}
-                        {item.status === 'ready' && `${(item.file.size / 1024 / 1024).toFixed(2)} MB`}
+                        {item.status === 'ready' &&
+                          `${(item.file.size / 1024 / 1024).toFixed(2)} MB`}
                         {item.status === 'failed' &&
                           (item.error?.trim()
                             ? `${t('studentHome.attachmentFailed')}：${item.error}`
@@ -1107,16 +1108,27 @@ export default function StudentHomePage() {
                               className="group cursor-pointer"
                               onClick={() => openCourse(course.id)}
                             >
-                              {/* Thumbnail — large radius, gradient placeholder */}
+                              {/* Thumbnail — the course cover (the deck's first page by
+                                  default, or the image the teacher uploaded), with a
+                                  gradient placeholder until a cover exists. */}
                               <div className="relative w-full aspect-[16/9] rounded-2xl bg-slate-100 dark:bg-slate-800/80 overflow-hidden transition-transform duration-200 group-hover:scale-[1.02]">
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <div className="size-12 rounded-2xl bg-gradient-to-br from-violet-100 to-blue-100 dark:from-violet-900/30 dark:to-blue-900/30 flex items-center justify-center">
-                                    <span className="text-xl opacity-50">📄</span>
+                                {course.coverUrl ? (
+                                  <img
+                                    src={course.coverUrl}
+                                    alt=""
+                                    loading="lazy"
+                                    draggable={false}
+                                    className="absolute inset-0 size-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="size-12 rounded-2xl bg-gradient-to-br from-violet-100 to-blue-100 dark:from-violet-900/30 dark:to-blue-900/30 flex items-center justify-center">
+                                      <span className="text-xl opacity-50">📄</span>
+                                    </div>
                                   </div>
-                                </div>
+                                )}
                                 <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-white/70 dark:bg-slate-900/60 px-2 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-300 backdrop-blur-sm shadow-sm">
-                                  <Sparkles className="size-2.5" />
-                                  v{course.version}
+                                  <Sparkles className="size-2.5" />v{course.version}
                                 </span>
                               </div>
 
@@ -1142,7 +1154,6 @@ export default function StudentHomePage() {
           </AnimatePresence>
         </motion.div>
       )}
-
     </div>
   );
 }

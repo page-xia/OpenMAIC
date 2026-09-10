@@ -40,7 +40,7 @@ export default function TeacherSettingsPage() {
           打开系统设置
         </Button>
       </div>
-      <SettingsDialog open={open} onOpenChange={setOpen} />
+      <SettingsDialog open={open} onOpenChange={setOpen} surface="teacher" />
     </div>
   );
 }

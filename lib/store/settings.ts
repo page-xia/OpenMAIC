@@ -11,7 +11,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { ProviderId } from '@/lib/ai/providers';
 import type { ProvidersConfig } from '@/lib/types/settings';
-import { PROVIDERS } from '@/lib/ai/providers';
+import { PROVIDERS, parseModelString } from '@/lib/ai/providers';
 import { findModelById, getCanonicalModelId } from '@/lib/ai/model-aliases';
 import type { ThinkingConfig } from '@/lib/types/provider';
 import { getThinkingConfigKey, supportsConfigurableThinking } from '@/lib/ai/thinking-config';
@@ -221,6 +221,18 @@ export interface SettingsState {
   // 0 = off (serial generation); populated by fetchServerProviders.
   parallelSceneConcurrency: number;
 
+  /**
+   * The globally selected model ("provider:model"), set only from the settings
+   * dialog's model picker. On the teacher surface this is mirrored to the
+   * server as the deployment default (see teacher-settings-mirror); the
+   * `fetchServerProviders` sync also writes it when it adopts the server value,
+   * which keeps the round-trip idempotent. Kept separate from
+   * `providerId`/`modelId` on purpose: those are per-browser state that any
+   * visitor's ordinary browsing can move, so mirroring them directly would let
+   * an unrelated local selection silently become every student's default.
+   */
+  serverDefaultModel: string;
+
   // Auto-config lifecycle flag (persisted)
   autoConfigApplied: boolean;
 
@@ -257,6 +269,8 @@ export interface SettingsState {
 
   // Actions
   setModel: (providerId: ProviderId, modelId: string) => void;
+  /** Set (or clear, with an empty string) the deployment-wide default model. */
+  setServerDefaultModel: (model: string) => void;
   setThinkingConfig: (
     providerId: ProviderId,
     modelId: string,
@@ -960,6 +974,9 @@ export const useSettingsStore = create<SettingsState>()(
         // Off until the server reports a concurrency via fetchServerProviders.
         parallelSceneConcurrency: 0,
 
+        // Empty until the teacher picks one in the settings dialog.
+        serverDefaultModel: '',
+
         autoConfigApplied: false,
 
         // Web Search settings (use defaults)
@@ -967,6 +984,8 @@ export const useSettingsStore = create<SettingsState>()(
 
         // Actions
         setModel: (providerId, modelId) => set({ providerId, modelId }),
+
+        setServerDefaultModel: (model) => set({ serverDefaultModel: model.trim() }),
 
         setThinkingConfig: (providerId, modelId, config) =>
           set((state) => {
@@ -1475,6 +1494,8 @@ export const useSettingsStore = create<SettingsState>()(
               video: Record<string, { models?: string[]; disabled?: boolean }>;
               webSearch: Record<string, { disabled?: boolean }>;
               generation?: { parallelSceneConcurrency?: number };
+              /** Deployment default model ("provider:model") or null when unset. */
+              defaultModel?: string | null;
             };
 
             set((state) => {
@@ -1776,6 +1797,33 @@ export const useSettingsStore = create<SettingsState>()(
               const validLLMModel = validLLMProvider
                 ? resolveSelectedLLMModel(validLLMProvider as ProviderId, state.modelId, llmModels)
                 : '';
+              // The deployment default model chosen in the settings dialog
+              // outranks the provider-order fallback above. Students have no
+              // model picker, so this is what makes the teacher's choice reach
+              // them; without it the store would keep re-resolving to whichever
+              // provider happens to sort first. Adopted only when it names a
+              // provider this deployment serves and (when the provider pins a
+              // model list) a model that list actually contains — a stale or
+              // typo'd default must never blank the selection.
+              const requestedDefault = data.defaultModel?.trim() ?? '';
+              let selectedLLMProvider = validLLMProvider;
+              let selectedLLMModel = validLLMModel;
+              if (requestedDefault) {
+                const { providerId: defaultProviderId, modelId: defaultModelId } =
+                  parseModelString(requestedDefault);
+                const defaultProviderConfig = newProvidersConfig[defaultProviderId];
+                const modelListed =
+                  !defaultProviderConfig?.models?.length ||
+                  defaultProviderConfig.models.some((model) => model.id === defaultModelId);
+                if (
+                  defaultProviderConfig &&
+                  isLLMProviderConfigured(defaultProviderConfig) &&
+                  modelListed
+                ) {
+                  selectedLLMProvider = defaultProviderId;
+                  selectedLLMModel = defaultModelId;
+                }
+              }
               const imageModels = validImageProvider
                 ? resolveMediaModels(
                     IMAGE_PROVIDERS[validImageProvider as ImageProviderId]?.models ?? [],
@@ -1915,11 +1963,14 @@ export const useSettingsStore = create<SettingsState>()(
                   Math.floor(data.generation?.parallelSceneConcurrency ?? 0),
                 ),
                 autoConfigApplied: true,
+                // Remember the server's value verbatim so the mirror converges
+                // instead of re-pushing a stale local pick on the next change.
+                serverDefaultModel: requestedDefault,
                 // Validated selections
-                ...(validLLMProvider !== state.providerId && {
-                  providerId: validLLMProvider as ProviderId,
+                ...(selectedLLMProvider !== state.providerId && {
+                  providerId: selectedLLMProvider as ProviderId,
                 }),
-                ...(validLLMModel !== state.modelId && { modelId: validLLMModel }),
+                ...(selectedLLMModel !== state.modelId && { modelId: selectedLLMModel }),
                 ...(validTTSProvider !== state.ttsProviderId && {
                   ttsProviderId: validTTSProvider as TTSProviderId,
                   ttsVoice: validTTSVoice,

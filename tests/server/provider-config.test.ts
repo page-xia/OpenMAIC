@@ -232,6 +232,39 @@ providers:
     });
   });
 
+  describe('getServerDefaultModel', () => {
+    it('is undefined when the settings row is absent', async () => {
+      const { getServerDefaultModel } = await import('@/lib/server/provider-config');
+      expect(await getServerDefaultModel()).toBeUndefined();
+    });
+
+    it('reads and trims the stored model string', async () => {
+      vi.doMock('@/lib/server/courseware/settings-repo', () => ({
+        SERVER_DEFAULT_MODEL_SETTING_KEY: 'server_default_model',
+        getSystemSetting: async () => ({ value: '  deepseek:deepseek-flash  ' }),
+      }));
+      const { getServerDefaultModel } = await import('@/lib/server/provider-config');
+      expect(await getServerDefaultModel()).toBe('deepseek:deepseek-flash');
+    });
+
+    it('treats a blank stored value as unset rather than an empty model', async () => {
+      vi.doMock('@/lib/server/courseware/settings-repo', () => ({
+        SERVER_DEFAULT_MODEL_SETTING_KEY: 'server_default_model',
+        getSystemSetting: async () => ({ value: '   ' }),
+      }));
+      const { getServerDefaultModel } = await import('@/lib/server/provider-config');
+      expect(await getServerDefaultModel()).toBeUndefined();
+    });
+
+    it('is undefined when reading the settings row fails', async () => {
+      vi.doMock('@/lib/server/courseware/settings-repo', () => {
+        throw new Error('db unavailable');
+      });
+      const { getServerDefaultModel } = await import('@/lib/server/provider-config');
+      expect(await getServerDefaultModel()).toBeUndefined();
+    });
+  });
+
   describe('getServerProviders', () => {
     it('returns empty object when no providers configured', async () => {
       const { getServerProviders } = await import('@/lib/server/provider-config');

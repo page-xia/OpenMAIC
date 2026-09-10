@@ -116,6 +116,25 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let lastProjected = '';
 
 /**
+ * Save the deployment default model to its own settings row and report the real
+ * outcome. Kept off the provider mirror because the provider route replaces the
+ * whole `server_providers` value — routing a model pick through it would erase
+ * provider credentials whenever the writing browser holds none.
+ */
+export async function pushDefaultModel(model: string): Promise<{ ok: boolean; status: number }> {
+  try {
+    const response = await fetch('/api/teacher/default-model', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: model.trim() }),
+    });
+    return { ok: response.ok, status: response.status };
+  } catch {
+    return { ok: false, status: 0 };
+  }
+}
+
+/**
  * Start mirroring the settings store into the teacher backend. Debounced (2s)
  * so a batch of dialog edits produces one save; failures retry on the next
  * change rather than blocking the UI. Imported for its side effect from the

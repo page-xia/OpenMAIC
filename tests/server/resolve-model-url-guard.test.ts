@@ -26,6 +26,7 @@ vi.mock('@/lib/server/provider-config', () => ({
   resolveApiKey: (_id: string, clientKey: string) => clientKey || 'server-key',
   resolveBaseUrl: (_id: string, clientBaseUrl?: string) => clientBaseUrl,
   resolveProxy: () => undefined,
+  getServerDefaultModel: () => undefined,
 }));
 
 describe('resolveModel — client-supplied base URL guard applies in every environment', () => {

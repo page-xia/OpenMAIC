@@ -9,6 +9,7 @@ import type { NextRequest } from 'next/server';
 import { getModel, getProvider, parseModelString, type ModelWithInfo } from '@/lib/ai/providers';
 import type { ProviderType, ThinkingConfig } from '@/lib/types/provider';
 import {
+  getServerDefaultModel,
   isServerConfiguredProvider,
   resolveApiKey,
   resolveBaseUrl,
@@ -16,7 +17,11 @@ import {
 } from '@/lib/server/provider-config';
 import { validateUrlForSSRF } from '@/lib/server/ssrf-guard';
 import { fetchWithRedirectValidation } from '@/lib/server/fetch-with-redirect-validation';
-import { getStageRoute, type LlmStage } from '@/lib/server/model-routes';
+import {
+  getStageDefaultThinking,
+  getStageRoute,
+  type LlmStage,
+} from '@/lib/server/model-routes';
 
 export interface ResolvedModel extends ModelWithInfo {
   /** Original model string (e.g. "openai/gpt-4o-mini") */
@@ -53,29 +58,39 @@ export async function resolveModel(params: {
   providerType?: string;
   thinkingConfig?: ThinkingConfig;
 }): Promise<ResolvedModel> {
-  // Resolution order: stage route > x-model > DEFAULT_MODEL.
+  // Resolution order: stage route > server default model > x-model > DEFAULT_MODEL.
   // A configured stage route is the operator's deliberate per-stage choice and
   // wins even over a client-sent x-model (otherwise the browser UI, which always
   // sends its saved model, would shadow every route). Unrouted stages fall back
-  // to the client x-model, then DEFAULT_MODEL. There is intentionally no hardcoded
-  // model fallback — if nothing resolves we fail loud rather than silently pick a
-  // vendor default.
+  // to the deployment-wide default model picked in the settings dialog, then to
+  // the client x-model, then DEFAULT_MODEL. The default model outranks x-model
+  // for the same reason a route does: the browser always sends its store's
+  // model, so anything ranked below it would never take effect. There is
+  // intentionally no hardcoded model fallback — if nothing resolves we fail
+  // loud rather than silently pick a vendor default.
   const stageRoute = getStageRoute(params.stage);
   const stageModel = stageRoute?.model;
-  const modelString = stageModel || params.modelString || process.env.DEFAULT_MODEL;
+  // Only consulted when no stage route matched: the route is the more specific
+  // operator intent, and skipping the read keeps a routed call from paying for
+  // a settings lookup it would ignore.
+  const serverDefaultModel = stageModel ? undefined : await getServerDefaultModel();
+  const modelString =
+    stageModel || serverDefaultModel || params.modelString || process.env.DEFAULT_MODEL;
   if (!modelString) {
     throw new Error(
-      'No model could be resolved. Configure DEFAULT_MODEL (and/or a MODEL_ROUTES entry for this stage), or send a model via x-model.',
+      'No model could be resolved. Configure DEFAULT_MODEL (and/or a MODEL_ROUTES entry for this stage), pick a default model in the settings dialog, or send a model via x-model.',
     );
   }
   const { providerId, modelId } = parseModelString(modelString);
 
-  // When a stage route overrides the client's model, the client-sent connection
-  // params (apiKey/baseUrl/providerType) belong to the client's *other* model
-  // and must not bleed onto the routed provider — otherwise e.g. a routed
-  // Anthropic model would be built with the client's OpenAI providerType/key.
-  // A routed model resolves purely from server config, as if no x-model was sent.
-  const routed = Boolean(stageModel);
+  // When a stage route or the deployment default overrides the client's model,
+  // the client-sent connection params (apiKey/baseUrl/providerType) belong to
+  // the client's *other* model and must not bleed onto the resolved provider —
+  // otherwise e.g. a routed Anthropic model would be built with the client's
+  // OpenAI providerType/key. Such a model resolves purely from server config,
+  // as if no x-model was sent. (The settings dialog only offers server-managed
+  // providers, so their keys are server-side by construction.)
+  const routed = Boolean(stageModel || serverDefaultModel);
   const clientApiKey = routed ? undefined : params.apiKey;
   const clientProviderType = routed ? undefined : params.providerType;
   const clientBaseUrlParam = routed ? undefined : params.baseUrl;
@@ -132,12 +147,15 @@ export async function resolveModel(params: {
   // ThinkingConfig (mode/effort/level/enabled/budgetTokens/…) which callLLM
   // normalizes against the model's capability:
   //  - routed + thinking set → the route's thinking wins (over client thinking).
-  //  - routed + no thinking  → routed model uses its own default; client thinking
-  //    is dropped (it belonged to the client's other model).
-  //  - unrouted              → honor the client's thinking config.
+  //  - routed + no thinking  → the stage's built-in default, if any; then the
+  //    routed model's own default. Client thinking is dropped (it belonged to
+  //    the client's other model).
+  //  - unrouted              → the stage's built-in default, if any; else the
+  //    client's thinking config.
+  const stageThinking = getStageDefaultThinking(params.stage);
   const thinkingConfig: ThinkingConfig | undefined = routed
-    ? stageRoute?.thinking
-    : params.thinkingConfig;
+    ? (stageRoute?.thinking ?? stageThinking)
+    : (params.thinkingConfig ?? stageThinking);
 
   return {
     model,

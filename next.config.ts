@@ -7,6 +7,13 @@ const nextConfig: NextConfig = {
       'lib/server/agent-runtime/import-pptx-worker.mjs',
       'skills/openmaic/**',
       'skills/agent-runtime/**',
+      // sharp dlopens its native libvips at runtime, which file tracing cannot
+      // see: the package's JS shim is traced into `.next/standalone` but the
+      // ~19MB `libvips-cpp.so` is not, so `require('sharp')` fails with
+      // ERR_DLOPEN_FAILED and the agent runtime refuses to start (courseware
+      // generation never runs). Anchor the musl libvips payload explicitly —
+      // the runner image is `node:22-alpine`, so only musl builds are relevant.
+      'node_modules/@img/sharp-libvips-linuxmusl-*/**',
     ],
   },
   typescript: {

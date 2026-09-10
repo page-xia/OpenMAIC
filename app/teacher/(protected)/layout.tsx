@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 
 import { TeacherRail, type TeacherRailCourse } from '@/components/teacher/TeacherRail';
+import { onTeacherLibraryChanged } from '@/lib/teacher/library-signal';
 
 interface MeResponse {
   success: boolean;
@@ -98,6 +99,12 @@ export default function TeacherProtectedLayout({ children }: { children: React.R
   useEffect(() => {
     void loadCourses();
   }, [loadCourses]);
+
+  // Routes under this layout (new/import) create courses server-side and then
+  // client-navigate, which does NOT remount the layout — so the one-shot load
+  // above would leave the rail missing the new row until a hard refresh. The
+  // writers announce their change through this signal instead.
+  useEffect(() => onTeacherLibraryChanged(() => void loadCourses()), [loadCourses]);
 
   const handleLogout = useCallback(async () => {
     await fetch('/api/teacher/auth/logout', { method: 'POST' }).catch(() => undefined);

@@ -748,6 +748,30 @@ export function getServerProviders(): Record<string, { models?: string[] }> {
   return result;
 }
 
+/**
+ * The deployment-wide default model ("provider:model") chosen in the settings
+ * dialog, or undefined when the operator never set one. Only the model *id* is
+ * exposed — never a key or base URL.
+ *
+ * Reads its own `server_default_model` row (see SERVER_DEFAULT_MODEL_SETTING_KEY)
+ * rather than the provider overlay: the write path is async and must not be
+ * forced through the synchronous getConfig cache, and keeping it out of the
+ * `server_providers` row means saving a default can never disturb provider
+ * credentials.
+ */
+export async function getServerDefaultModel(): Promise<string | undefined> {
+  try {
+    const { getSystemSetting, SERVER_DEFAULT_MODEL_SETTING_KEY } = await import(
+      '@/lib/server/courseware/settings-repo'
+    );
+    const setting = await getSystemSetting<string>(SERVER_DEFAULT_MODEL_SETTING_KEY);
+    const value = typeof setting?.value === 'string' ? setting.value.trim() : '';
+    return value || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Resolve API key. Managed provider ⇒ server key; otherwise client key. */
 export function resolveApiKey(providerId: string, clientKey?: string): string {
   return resolveSectionApiKey('providers', providerId, clientKey);

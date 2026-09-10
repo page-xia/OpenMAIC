@@ -122,6 +122,7 @@ async function renderRail(): Promise<{ onRenameSession: ReturnType<typeof vi.fn>
         onSessionDeleted: vi.fn(),
         onRenameSession,
         onDeleteCourse: vi.fn(),
+        isTeacherSurface: false,
         resizeHandle: null as ReactNode,
       }),
     );

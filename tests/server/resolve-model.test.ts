@@ -1,17 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock the heavy downstream of resolveModel so the test isolates the model
-// string *resolution order*: stage route > x-model > DEFAULT_MODEL > builtin.
+// string *resolution order*: stage route > server default model > x-model >
+// DEFAULT_MODEL > builtin.
 // model-routes is left real (it just reads MODEL_ROUTES) so we exercise the
 // real integration point.
 // Use the real parseModelString (canonical `provider:model` colon format) so
 // the test exercises actual separator handling; only stub getModel (recording
 // its args) so no real provider client is constructed. provider-config stubs
 // echo the client-supplied key/baseUrl so a test can assert they are dropped
-// when a stage route overrides the client model.
+// when a stage route overrides the client model, and expose a settable
+// getServerDefaultModel so the deployment default can be driven per test.
 const mocks = vi.hoisted(() => ({
   getModelCalls: [] as Array<Record<string, unknown>>,
   serverManaged: false,
+  serverDefaultModel: undefined as string | undefined,
 }));
 
 vi.mock('@/lib/ai/providers', async (importOriginal) => {
@@ -30,6 +33,7 @@ vi.mock('@/lib/server/provider-config', () => ({
   resolveApiKey: (_id: string, clientKey: string) => clientKey || 'server-key',
   resolveBaseUrl: (_id: string, clientBaseUrl?: string) => clientBaseUrl,
   resolveProxy: () => undefined,
+  getServerDefaultModel: async () => mocks.serverDefaultModel,
 }));
 
 vi.mock('@/lib/server/ssrf-guard', () => ({
@@ -41,6 +45,7 @@ describe('resolveModel — per-stage resolution order', () => {
     vi.resetModules();
     mocks.getModelCalls.length = 0;
     mocks.serverManaged = false;
+    mocks.serverDefaultModel = undefined;
     delete process.env.MODEL_ROUTES;
     delete process.env.DEFAULT_MODEL;
   });
@@ -65,6 +70,59 @@ describe('resolveModel — per-stage resolution order', () => {
     const { resolveModel } = await import('@/lib/server/resolve-model');
     const r = await resolveModel({ stage: 'scene-content' });
     expect(r.modelString).toBe('openai:gpt-5.4');
+  });
+
+  it('uses the server default model over DEFAULT_MODEL when no stage route matches', async () => {
+    process.env.DEFAULT_MODEL = 'openai:gpt-5.4-mini';
+    mocks.serverDefaultModel = 'deepseek:deepseek-flash';
+    const { resolveModel } = await import('@/lib/server/resolve-model');
+    const r = await resolveModel({ stage: 'scene-content' });
+    expect(r.modelString).toBe('deepseek:deepseek-flash');
+  });
+
+  it('lets the server default model win over an explicit modelString (x-model)', async () => {
+    mocks.serverDefaultModel = 'deepseek:deepseek-flash';
+    const { resolveModel } = await import('@/lib/server/resolve-model');
+    const r = await resolveModel({
+      stage: 'scene-content',
+      modelString: 'anthropic:claude-sonnet-4',
+    });
+    expect(r.modelString).toBe('deepseek:deepseek-flash');
+  });
+
+  it('still lets a stage route win over the server default model', async () => {
+    mocks.serverDefaultModel = 'deepseek:deepseek-flash';
+    process.env.MODEL_ROUTES = JSON.stringify({ 'scene-content': 'openai:gpt-5.4' });
+    const { resolveModel } = await import('@/lib/server/resolve-model');
+    const r = await resolveModel({ stage: 'scene-content' });
+    expect(r.modelString).toBe('openai:gpt-5.4');
+  });
+
+  it('drops the client connection params when the server default model resolves', async () => {
+    mocks.serverDefaultModel = 'deepseek:deepseek-flash';
+    const { resolveModel } = await import('@/lib/server/resolve-model');
+    const r = await resolveModel({
+      stage: 'scene-content',
+      modelString: 'anthropic:claude-sonnet-4',
+      apiKey: 'client-key',
+      baseUrl: 'https://client.example/v1',
+      providerType: 'openai',
+    });
+    expect(r.modelString).toBe('deepseek:deepseek-flash');
+    // The client key/baseUrl belonged to its own model, so neither may bleed
+    // onto the server-resolved provider.
+    expect(r.apiKey).toBe('server-key');
+    expect(r.baseUrl).toBeUndefined();
+  });
+
+  it('ignores the server default model when it is unset', async () => {
+    process.env.DEFAULT_MODEL = 'openai:gpt-5.4-mini';
+    const { resolveModel } = await import('@/lib/server/resolve-model');
+    const r = await resolveModel({
+      stage: 'scene-content',
+      modelString: 'anthropic:claude-sonnet-4',
+    });
+    expect(r.modelString).toBe('anthropic:claude-sonnet-4');
   });
 
   it('uses DEFAULT_MODEL for stages not listed in MODEL_ROUTES', async () => {

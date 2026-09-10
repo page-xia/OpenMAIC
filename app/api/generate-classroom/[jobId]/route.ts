@@ -6,27 +6,34 @@ import {
 } from '@/lib/server/classroom-job-store';
 import { buildRequestOrigin } from '@/lib/server/classroom-storage';
 import { createLogger } from '@/lib/logger';
+import { startRequestLog } from '@/lib/server/request-log';
 
 const log = createLogger('ClassroomJob API');
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest, context: { params: Promise<{ jobId: string }> }) {
-  let resolvedJobId: string | undefined;
+  const reqLog = startRequestLog(log, req);
   try {
     const { jobId } = await context.params;
-    resolvedJobId = jobId;
+    reqLog.set({ jobId });
 
     if (!isValidClassroomJobId(jobId)) {
+      reqLog.done(400, { reason: 'invalid_id' });
       return apiError('INVALID_REQUEST', 400, 'Invalid classroom generation job id');
     }
 
     const job = await readClassroomGenerationJob(jobId);
     if (!job) {
+      reqLog.done(404, { reason: 'not_found' });
       return apiError('INVALID_REQUEST', 404, 'Classroom generation job not found');
     }
 
     const pollUrl = `${buildRequestOrigin(req)}/api/generate-classroom/${jobId}`;
+
+    // A poll every 5s per viewer is the highest-volume generation-path call, so
+    // success is debug; the runner logs the terminal success/failure itself.
+    reqLog.done(200, { status: job.status, step: job.step, progress: job.progress }, 'debug');
 
     return apiSuccess({
       jobId: job.id,
@@ -41,9 +48,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ jobId: 
       result: job.result,
       error: job.error,
       done: job.status === 'succeeded' || job.status === 'failed',
+      // A failed job with saved progress can be resumed from where it stopped
+      // instead of regenerating the pages already produced.
+      resumable: job.status === 'failed' && !!job.checkpoint,
+      ...(job.checkpoint ? { checkpoint: job.checkpoint } : {}),
     });
   } catch (error) {
-    log.error(`Classroom job retrieval failed [jobId=${resolvedJobId ?? 'unknown'}]:`, error);
+    reqLog.fail(error);
     return apiError(
       'INTERNAL_ERROR',
       500,

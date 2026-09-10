@@ -1886,7 +1886,9 @@
     },
     "ttsBrowserNativeTimelineNotice": "El TTS nativo del navegador no admite las funciones de audio de la línea de tiempo del editor (vista previa, regenerar y voz en off masiva). Cambia a un proveedor de TTS administrado para generar y administrar el audio por línea.",
     "alidocmindAccessKeyId": "AccessKey ID",
-    "alidocmindAccessKeySecret": "AccessKey Secret"
+    "alidocmindAccessKeySecret": "AccessKey Secret",
+    "defaultModelFollowSystem": "Seguir el valor predeterminado del sistema",
+    "defaultModelServerHint": "Solo se enumeran los proveedores configurados en el servidor. Los estudiantes y las etapas de generación sin modelo propio usan el modelo elegido aquí; `Seguir el valor predeterminado del sistema` deja que el servidor elija según el orden de proveedores."
   },
   "workspace": {
     "untitledCourse": "未命名课堂",

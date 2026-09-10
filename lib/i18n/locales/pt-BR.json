@@ -1886,7 +1886,9 @@
     },
     "ttsBrowserNativeTimelineNotice": "O TTS nativo do navegador não suporta os recursos de áudio da linha do tempo do editor (pré-visualizar, regenerar e narração em lote). Mude para um provedor de TTS gerenciado para gerar e gerenciar o áudio de cada linha.",
     "alidocmindAccessKeyId": "AccessKey ID",
-    "alidocmindAccessKeySecret": "AccessKey Secret"
+    "alidocmindAccessKeySecret": "AccessKey Secret",
+    "defaultModelFollowSystem": "Seguir o padrão do sistema",
+    "defaultModelServerHint": "Apenas provedores configurados no servidor são listados. Alunos e etapas de geração sem modelo próprio usam o modelo escolhido aqui; `Seguir o padrão do sistema` deixa o servidor escolher pela ordem dos provedores."
   },
   "workspace": {
     "untitledCourse": "未命名课堂",

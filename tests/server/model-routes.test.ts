@@ -337,6 +337,25 @@ describe('model-routes', () => {
     expect(warn).toHaveBeenCalled();
   });
 
+  it('gives scene-actions a thinking-disabled default, others none', async () => {
+    const { getStageDefaultThinking } = await import('@/lib/server/model-routes');
+    expect(getStageDefaultThinking('scene-actions')).toEqual({ mode: 'disabled', enabled: false });
+    expect(getStageDefaultThinking('scene-content')).toBeUndefined();
+    expect(getStageDefaultThinking('scene-content:slide')).toBeUndefined();
+    expect(getStageDefaultThinking(undefined)).toBeUndefined();
+  });
+
+  it('lets a MODEL_ROUTES thinking object override the built-in stage default', async () => {
+    process.env.MODEL_ROUTES = JSON.stringify({
+      'scene-actions': {
+        model: 'openai:gpt-5.4',
+        thinking: { mode: 'enabled', effort: 'high' },
+      },
+    });
+    const { getStageRoute } = await import('@/lib/server/model-routes');
+    expect(getStageRoute('scene-actions')?.thinking).toEqual({ mode: 'enabled', effort: 'high' });
+  });
+
   it('ignores an object route value with no model string', async () => {
     process.env.MODEL_ROUTES = JSON.stringify({
       'scene-content': { thinking: { effort: 'high' } },

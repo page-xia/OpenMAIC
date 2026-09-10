@@ -66,6 +66,8 @@ import { AddAudioProviderDialog, type NewAudioProviderData } from './add-audio-p
 import { isCustomTTSProvider, isCustomASRProvider } from '@/lib/audio/types';
 import { resolveASRProviderName, resolveTTSProviderName } from '@/lib/audio/provider-display';
 import type { SettingsSection, EditingModel } from '@/lib/types/settings';
+import { DefaultModelPicker } from './default-model-picker';
+import { pushDefaultModel } from '@/lib/persistence/teacher-settings-mirror';
 
 // ─── Provider List Column (reusable) ───
 function ProviderListColumn<T extends string>({
@@ -199,10 +201,23 @@ interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialSection?: SettingsSection;
+  /**
+   * Which surface opened this dialog. The teacher surface is the operations
+   * backend: it is the only place the deployment-wide default model may be
+   * chosen, because on the student surface the student is not the operator.
+   * Defaults to 'student' so an un-updated call site can never expose it.
+   */
+  surface?: 'student' | 'teacher';
 }
 
-export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsDialogProps) {
+export function SettingsDialog({
+  open,
+  onOpenChange,
+  initialSection,
+  surface = 'student',
+}: SettingsDialogProps) {
   const { t } = useI18n();
+  const isTeacherSurface = surface === 'teacher';
 
   // Get settings from store
   const providerId = useSettingsStore((state) => state.providerId);
@@ -226,6 +241,37 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
   const setProvidersConfig = useSettingsStore((state) => state.setProvidersConfig);
   const setTTSProvider = useSettingsStore((state) => state.setTTSProvider);
   const setASRProvider = useSettingsStore((state) => state.setASRProvider);
+  const serverDefaultModel = useSettingsStore((state) => state.serverDefaultModel);
+  const setServerDefaultModel = useSettingsStore((state) => state.setServerDefaultModel);
+
+  // Hydrate the deployment default model from the server when the teacher opens
+  // this dialog. The store value is the mirror's source, and on a teacher
+  // browser that has not run the student `/api/server-providers` sync it starts
+  // empty — reading it back here is what makes the picker show the saved value
+  // and keeps the mirror from re-pushing a stale one. Failures are ignored:
+  // the picker stays usable and a genuine save surfaces its own error.
+  useEffect(() => {
+    if (!open || !isTeacherSurface) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch('/api/teacher/default-model');
+        if (!res.ok) return;
+        const body = (await res.json()) as { defaultModel?: string | null };
+        if (cancelled) return;
+        // `null`/absent means the server has no default, so clear any stale
+        // local value instead of leaving the picker showing a model the server
+        // would not actually resolve.
+        const value = body.defaultModel;
+        setServerDefaultModel(typeof value === 'string' ? value : '');
+      } catch {
+        // Non-fatal: keep whatever the store already had.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, isTeacherSurface, setServerDefaultModel]);
 
   // Navigation
   const [activeSection, setActiveSection] = useState<SettingsSection>('providers');
@@ -553,6 +599,13 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
     switch (activeSection) {
       case 'general':
         return <h2 className="text-lg font-semibold">{t('settings.systemSettings')}</h2>;
+      case 'default-model':
+        return (
+          <>
+            <Sparkles className="h-6 w-6 text-muted-foreground" />
+            <h2 className="text-lg font-semibold">{t('settings.activeModel')}</h2>
+          </>
+        );
       case 'skills':
         return (
           <>
@@ -739,6 +792,24 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
         <div className="flex h-full overflow-hidden">
           {/* Left Sidebar - Navigation */}
           <div className="flex-shrink-0 bg-muted/30 p-3 space-y-1" style={{ width: sidebarWidth }}>
+            {/* Deployment default model — teacher surface only: on the student
+                surface the student is not the operator, so the entry is absent
+                rather than disabled. */}
+            {isTeacherSurface && (
+              <button
+                onClick={() => setActiveSection('default-model')}
+                className={cn(
+                  'w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors text-left min-w-0',
+                  activeSection === 'default-model'
+                    ? 'bg-primary/10 text-primary font-medium'
+                    : 'hover:bg-muted',
+                )}
+              >
+                <Sparkles className="h-4 w-4 shrink-0" />
+                <span className="truncate">{t('settings.activeModel')}</span>
+              </button>
+            )}
+
             <button
               onClick={() => setActiveSection('token-plan')}
               className={cn(
@@ -1076,6 +1147,31 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-5">
               {activeSection === 'general' && <GeneralSettings />}
+
+              {activeSection === 'default-model' && isTeacherSurface && (
+                <DefaultModelPicker
+                  providers={allProviders
+                    .filter((provider) => provider.isServerConfigured)
+                    .map((provider) => ({
+                      id: provider.id,
+                      name: provider.name,
+                      models: provider.models ?? [],
+                    }))}
+                  value={serverDefaultModel}
+                  onChange={async (next) => {
+                    setServerDefaultModel(next);
+                    // Await the real save so a rejected write (a non-admin
+                    // session is refused) cannot read as success.
+                    const result = await pushDefaultModel(next);
+                    if (result.ok) {
+                      toast.success(t('settings.saveSuccess'));
+                    } else {
+                      toast.error(t('settings.saveFailed'));
+                    }
+                  }}
+                  t={t}
+                />
+              )}
 
               {activeSection === 'skills' && <SkillSettings />}
 

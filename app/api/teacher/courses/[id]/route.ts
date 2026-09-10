@@ -1,10 +1,12 @@
 import { NextRequest } from 'next/server';
 
 import { apiError, API_ERROR_CODES, apiSuccess } from '@/lib/server/api-response';
+import { getCourseAsset } from '@/lib/server/courseware/asset-repo';
 import {
   deleteCourse,
   documentStoreFor,
   getCourseForTeacher,
+  setCourseCover,
 } from '@/lib/server/courseware/course-repo';
 import { TeacherAuthError, requireTeacher } from '@/lib/server/teacher-auth';
 import { sanitizeSceneContent } from '@/lib/server/sanitize-scene-content';
@@ -15,6 +17,28 @@ const log = createLogger('TeacherCourse');
 
 function courseIdFrom(value: string): string | null {
   return /^[a-zA-Z0-9_-]+$/.test(value) ? value : null;
+}
+
+/**
+ * Resolve a cover pointer supplied by the client. Only an image asset that is
+ * unfiled or already filed under THIS course is accepted, so a course can never
+ * wear another course's picture. `null` clears the cover.
+ */
+async function resolveCoverAssetId(
+  courseId: string,
+  value: unknown,
+): Promise<{ ok: true; assetId: string | null } | { ok: false; reason: string }> {
+  if (value === null || value === '') return { ok: true, assetId: null };
+  if (typeof value !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(value)) {
+    return { ok: false, reason: 'Invalid cover asset id' };
+  }
+  const asset = await getCourseAsset(value);
+  if (!asset) return { ok: false, reason: 'Cover asset not found' };
+  if (asset.kind !== 'image') return { ok: false, reason: 'Cover must be an image asset' };
+  if (asset.courseId !== null && asset.courseId !== courseId) {
+    return { ok: false, reason: 'Cover asset belongs to another course' };
+  }
+  return { ok: true, assetId: asset.id };
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -57,11 +81,29 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!courseId) {
       return apiError(API_ERROR_CODES.INVALID_REQUEST, 400, 'Invalid course id');
     }
-    const body = (await request.json().catch(() => null)) as
-      | { title?: unknown; description?: unknown }
-      | null;
+    const body = (await request.json().catch(() => null)) as {
+      title?: unknown;
+      description?: unknown;
+      coverAssetId?: unknown;
+    } | null;
     if (!body) {
       return apiError(API_ERROR_CODES.INVALID_REQUEST, 400, 'Invalid JSON body');
+    }
+
+    // Cover first: it is pure ops metadata (no document write), so a rejected
+    // cover never leaves a half-applied title edit behind.
+    if (body.coverAssetId !== undefined) {
+      const cover = await resolveCoverAssetId(courseId, body.coverAssetId);
+      if (!cover.ok) {
+        return apiError(API_ERROR_CODES.INVALID_REQUEST, 400, cover.reason);
+      }
+      const updated = await setCourseCover(session.tid, courseId, cover.assetId);
+      if (!updated) {
+        return apiError(API_ERROR_CODES.INVALID_REQUEST, 404, 'Course not found');
+      }
+      if (body.title === undefined && body.description === undefined) {
+        return apiSuccess({ course: updated });
+      }
     }
 
     const store = documentStoreFor(session.tid);

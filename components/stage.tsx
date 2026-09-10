@@ -58,9 +58,20 @@ import { exitProPlaybackToStandalone } from '@/lib/workbench/pro-playback-exit';
 export function Stage({
   classroomId,
   onRetryOutline,
+  proEntryHidden = false,
 }: {
   classroomId?: string;
   onRetryOutline?: (outlineId: string) => Promise<void>;
+  /**
+   * Suppress every Pro entry signal in the classroom chrome.
+   *
+   * The student route (`/classroom/[id]`) is a viewer: students never edit a
+   * course, and the Pro entry there opened the agent workbench on a course they
+   * do not own. Editing lives at `/teacher/courses/:id/edit`, which hosts this
+   * same component without the flag. Host-supplied rather than derived from
+   * `hosted`, because the workspace pane (also Pro) must keep its exit control.
+   */
+  proEntryHidden?: boolean;
 }) {
   const { mode, setMode, scenes, currentSceneId, generatingOutlines, stage } = useStageStore();
   const router = useRouter();
@@ -282,15 +293,21 @@ export function Stage({
   // The embedded pane is already Pro-locked, so it has no switch. Full-screen
   // learning exposes an active switch whose off transition exits the workspace
   // and returns to the ordinary classroom route.
-  const chromeToggleHandler = hosted
-    ? workbenchPlayback
-      ? handleExitWorkbench
-      : undefined
-    : !isOwner || proRuntime === 'pending'
-      ? undefined
-      : proWorkbenchEntry
-        ? handleEnterWorkbench
-        : toggleHandler;
+  //
+  // `proEntryHidden` silences the whole cluster: with no handler the Header /
+  // CommandBar omit the Pro Switch entirely (see `HeaderControls`), so the
+  // student route can never enter edit mode or the workbench from the header.
+  const chromeToggleHandler = proEntryHidden
+    ? undefined
+    : hosted
+      ? workbenchPlayback
+        ? handleExitWorkbench
+        : undefined
+      : !isOwner || proRuntime === 'pending'
+        ? undefined
+        : proWorkbenchEntry
+          ? handleEnterWorkbench
+          : toggleHandler;
 
   // Mode swap choreography — a clean opacity cross-fade. Both roots layer
   // via `absolute inset-0` so they coexist for the ~280ms window without

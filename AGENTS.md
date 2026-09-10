@@ -55,6 +55,7 @@ Tailwind 侧的对应习惯（不引 css 时）：muted-foreground≈ink-mute、
 - `/workspace` 的"退出 Pro"（ProBadge、hero 的返回箭头）经 `WorkspaceShell.exitPro` → `exitHref` prop：教师会话时去 **`/teacher/courses`**（教师的普通模式=运营后台），否则回 `/`（学生端）。目的地由 `/workspace` 路由（server component）解析——`openmaic_teacher` 是 httpOnly 签名 cookie，`document.cookie` 读不到，客户端嗅探永远失效（2026-09-10 修的 bug 就在这里），所以必须服务端 `verifyTeacherSessionToken` 后经 prop 传入。
 - 课堂页的返回箭头（CommandBar 左箭头）由 `lib/workbench/classroom-exit.ts` 决定：`?from=workspace` → `/workspace`，否则 `/`。教师编辑页是 classroom 的另一个宿主，勿在此再加分支，改 `classroom-exit.ts`。
 - 教师端入口 `/teacher/courses`；学生端 `/`；编辑器 `/teacher/courses/:id/edit`。
+- **学生课堂页没有 Pro 入口**：`app/classroom/[id]/page.tsx` 给 `Stage` 传 `proEntryHidden`，`Stage` 据此把 `chromeToggleHandler` 置空，`HeaderControls` 便整块不渲染 Pro Switch（学生不进编辑态、也进不了 workbench）。教师编辑器与 workspace 的课堂面板不传该标志，改用 §8 的教师入口编辑。新增 classroom 宿主时，先回答"这个宿主该不该有 Pro 入口"，不要靠 `hosted` 反推。
 
 ## 7. 禁止事项（历史教训，源码注释里都有）
 
@@ -77,7 +78,15 @@ Tailwind 侧的对应习惯（不引 css 时）：muted-foreground≈ink-mute、
 
 `/teacher/students`（学生管理）是 master-detail 一页式：左列名单（搜索 + 最近活跃/课程数/提问数摘要），右列三段——账号资料（重置密码/删除）、每门课学习进度（进度条 = max_seen_order/scene_count，服务端只记最大页码防回退）、助教问答记录。数据采集两处：课堂播放器在 scene 切换时 POST `/api/student/progress`（仅学生登录态）；`/api/student/chat` 对登录学生落库问答（问题即时、答案流结束后补写）。教师数据权限：admin 见全部，teacher 仅见自己邀请码注册的学生（`student_invites.created_by` 是归属链）。
 
-## 10. 变更记录
+## 10. 课件封面（学生端课程库卡片）
+
+- 卡片背景=**封面图**：`courses.cover_asset_id` 指向 `course_assets` 里的一张图（bytes 在库里），公开地址走既有的 `/api/assets/<id>`（不可猜 id、immutable 缓存），因此 `listCoursesForTeacher` / `listPublishedCourses` 都带 `coverUrl`（无封面为 null）。
+- **默认取第一页**：AI 生成的课件自身没有图片，`lib/teacher/cover-image.ts` 用 `slideToPng` 把第一张可渲染页面（按 order、跳过 quiz/interactive、跳过空页）栅格化成 1280×720 PNG 再上传。教师详情页在"没有封面"时自动跑一次（每次访问一次，失败不重试）；也能手动「用第一页生成」或「上传封面」覆盖。
+- 空页不生成封面：没有元素的占位页会得到一张纯白卡片，比学生端的 📄 占位更糟——`firstCoverScene` 因此跳过它，详情页给一句提示。
+- 封面是课程元数据，不属于发布快照：改封面不需要重新发布，下架/再发布也不会丢。
+
+## 11. 变更记录
 
 - 2026-09-10 创建。依据 workspace-shell.css 现行令牌、WorkspaceRail 的 RailUtilities/RailOverflow、PaneFoldButton、pro-swap/classroom-exit 路由契约；教师端布局已按 §3 落地（后升级为 §8 的完整 rail 复用）。
 - 2026-09-10 修订 §6：退出 Pro 的教师判定改由 `/workspace` 服务端解析（httpOnly cookie 客户端不可见）；教师端 layout 根节点定为 `h-[100dvh] overflow-hidden`（`min-h-screen` 会让 rail 的 `h-full` 塌成内容高），滚动只属于 `main`。
+- 2026-09-10 修订 §6（学生课堂页藏 Pro 入口）、新增 §10（课件封面）：AI 老师阵容头像此前把 `/avatars/*.png` 当文字打印，现改用 `components/ui/avatar-display.tsx`（同时兼容 emoji 头像）。

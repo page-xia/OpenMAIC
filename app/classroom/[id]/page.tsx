@@ -276,35 +276,37 @@ export default function ClassroomDetailPage() {
     <StudentGate>
       <ThemeProvider>
         <MediaStageProvider value={classroomId}>
-        <div className="h-screen flex flex-col overflow-hidden">
-          {loading ? (
-            <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-              <div className="text-center text-muted-foreground">
-                <p>Loading classroom...</p>
+          <div className="h-screen flex flex-col overflow-hidden">
+            {loading ? (
+              <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                <div className="text-center text-muted-foreground">
+                  <p>Loading classroom...</p>
+                </div>
               </div>
-            </div>
-          ) : error ? (
-            <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-              <div className="text-center">
-                <p className="text-destructive mb-4">Error: {error}</p>
-                <button
-                  onClick={() => {
-                    setError(null);
-                    setLoading(true);
-                    loadClassroom();
-                  }}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-                >
-                  Retry
-                </button>
+            ) : error ? (
+              <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                <div className="text-center">
+                  <p className="text-destructive mb-4">Error: {error}</p>
+                  <button
+                    onClick={() => {
+                      setError(null);
+                      setLoading(true);
+                      loadClassroom();
+                    }}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                  >
+                    Retry
+                  </button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <Stage onRetryOutline={retrySingleOutline} />
-          )}
-        </div>
-      </MediaStageProvider>
-    </ThemeProvider>
+            ) : (
+              /* Student route: viewer chrome only — no Pro entry (`proEntryHidden`).
+               Teachers edit the same course at /teacher/courses/:id/edit. */
+              <Stage onRetryOutline={retrySingleOutline} proEntryHidden />
+            )}
+          </div>
+        </MediaStageProvider>
+      </ThemeProvider>
     </StudentGate>
   );
 }

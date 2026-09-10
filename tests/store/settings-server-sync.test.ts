@@ -14,48 +14,54 @@ import { isProviderUsable } from '@/lib/store/settings-validation';
 // Mocks — must be defined before importing the store
 // ---------------------------------------------------------------------------
 
-// Minimal built-in provider registry used by the store
-vi.mock('@/lib/ai/providers', () => ({
-  PROVIDERS: {
-    openai: {
-      id: 'openai',
-      name: 'OpenAI',
-      type: 'openai',
-      defaultBaseUrl: 'https://api.openai.com/v1',
-      requiresApiKey: true,
-      icon: '/logos/openai.svg',
-      models: [
-        { id: 'gpt-4o', name: 'GPT-4o' },
-        { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
-        { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
-      ],
+// Minimal built-in provider registry used by the store. Only PROVIDERS is
+// replaced — the real module's helpers (parseModelString) must stay live
+// because the store calls them.
+vi.mock('@/lib/ai/providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/ai/providers')>();
+  return {
+    ...actual,
+    PROVIDERS: {
+      openai: {
+        id: 'openai',
+        name: 'OpenAI',
+        type: 'openai',
+        defaultBaseUrl: 'https://api.openai.com/v1',
+        requiresApiKey: true,
+        icon: '/logos/openai.svg',
+        models: [
+          { id: 'gpt-4o', name: 'GPT-4o' },
+          { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+          { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
+        ],
+      },
+      anthropic: {
+        id: 'anthropic',
+        name: 'Anthropic',
+        type: 'anthropic',
+        defaultBaseUrl: 'https://api.anthropic.com',
+        requiresApiKey: true,
+        icon: '/logos/anthropic.svg',
+        models: [
+          { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
+          { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5' },
+        ],
+      },
+      deepseek: {
+        id: 'deepseek',
+        name: 'DeepSeek',
+        type: 'openai',
+        defaultBaseUrl: 'https://api.deepseek.com/v1',
+        requiresApiKey: true,
+        icon: '/logos/deepseek.svg',
+        models: [
+          { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro' },
+          { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash' },
+        ],
+      },
     },
-    anthropic: {
-      id: 'anthropic',
-      name: 'Anthropic',
-      type: 'anthropic',
-      defaultBaseUrl: 'https://api.anthropic.com',
-      requiresApiKey: true,
-      icon: '/logos/anthropic.svg',
-      models: [
-        { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
-        { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5' },
-      ],
-    },
-    deepseek: {
-      id: 'deepseek',
-      name: 'DeepSeek',
-      type: 'openai',
-      defaultBaseUrl: 'https://api.deepseek.com/v1',
-      requiresApiKey: true,
-      icon: '/logos/deepseek.svg',
-      models: [
-        { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro' },
-        { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash' },
-      ],
-    },
-  },
-}));
+  };
+});
 
 vi.mock('@/lib/audio/constants', () => ({
   TTS_PROVIDERS: {
@@ -221,6 +227,8 @@ interface MockServerResponse {
   image?: Record<string, { models?: string[]; baseUrl?: string; disabled?: boolean }>;
   video?: Record<string, { models?: string[]; baseUrl?: string; disabled?: boolean }>;
   webSearch?: Record<string, { baseUrl?: string; disabled?: boolean }>;
+  /** Deployment-wide default model ("provider:model"); null when unset. */
+  defaultModel?: string | null;
 }
 
 function mockServerResponse(overrides: MockServerResponse = {}) {
@@ -1992,5 +2000,94 @@ describe('settings media enable flags (#1288)', () => {
     await store.getState().fetchServerProviders();
 
     expect(store.getState().imageGenerationEnabled).toBe(false);
+  });
+});
+
+describe('fetchServerProviders — deployment default model', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    storage.clear();
+    mockFetch.mockReset();
+  });
+
+  async function getStore() {
+    const { useSettingsStore } = await import('@/lib/store/settings');
+    await useSettingsStore.persist.rehydrate();
+    return useSettingsStore;
+  }
+
+  // ---- Deployment default model ----
+  //
+  // The settings-dialog pick is what makes a teacher's choice reach students;
+  // these cover both that it is adopted and that a bad value cannot break the
+  // selection.
+
+  it('adopts the server default model over the provider-order fallback', async () => {
+    const store = await getStore();
+    mockServerResponse({
+      providers: { openai: { models: ['gpt-4o'] }, deepseek: { models: ['deepseek-flash'] } },
+      defaultModel: 'deepseek:deepseek-flash',
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().providerId).toBe('deepseek');
+    expect(store.getState().modelId).toBe('deepseek-flash');
+  });
+
+  it('records the server value in serverDefaultModel so the mirror converges', async () => {
+    const store = await getStore();
+    mockServerResponse({ defaultModel: 'deepseek:deepseek-flash' });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().serverDefaultModel).toBe('deepseek:deepseek-flash');
+  });
+
+  it('clears serverDefaultModel when the server reports none', async () => {
+    const store = await getStore();
+    store.getState().setServerDefaultModel('deepseek:deepseek-flash');
+    mockServerResponse({ defaultModel: null });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().serverDefaultModel).toBe('');
+  });
+
+  it('ignores a default model naming an unconfigured provider', async () => {
+    const store = await getStore();
+    mockServerResponse({
+      providers: { openai: { models: ['gpt-4o'] } },
+      defaultModel: 'nope:does-not-exist',
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().providerId).toBe('openai');
+    expect(store.getState().modelId).toBe('gpt-4o');
+  });
+
+  it('ignores a default model the provider does not list', async () => {
+    const store = await getStore();
+    mockServerResponse({
+      providers: { openai: { models: ['gpt-4o'] } },
+      defaultModel: 'openai:gpt-9-unknown',
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().modelId).toBe('gpt-4o');
+  });
+
+  it('adopts a default model the provider lists even when it is not first', async () => {
+    const store = await getStore();
+    mockServerResponse({
+      providers: { openai: { models: ['gpt-4o', 'gpt-4o-mini'] } },
+      defaultModel: 'openai:gpt-4o-mini',
+    });
+
+    await store.getState().fetchServerProviders();
+
+    expect(store.getState().modelId).toBe('gpt-4o-mini');
   });
 });

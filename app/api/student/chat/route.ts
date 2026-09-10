@@ -7,6 +7,7 @@ import { resolveModel } from '@/lib/server/resolve-model';
 import { getStudentSession } from '@/lib/server/student-auth';
 import { recordQuestion, saveQuestionAnswer } from '@/lib/server/courseware/student-progress';
 import { createLogger } from '@/lib/logger';
+import { startRequestLog } from '@/lib/server/request-log';
 
 const log = createLogger('StudentChat');
 
@@ -31,6 +32,9 @@ interface ChatMessage {
  * the user as a visible message instead of a silently empty 200.
  */
 export async function POST(request: NextRequest) {
+  const reqLog = startRequestLog(log, request);
+  const studentSession = getStudentSession(request);
+  reqLog.set({ studentId: studentSession?.sid });
   try {
     const body = (await request.json()) as { messages?: ChatMessage[] };
     const messages = Array.isArray(body.messages) ? body.messages : [];
@@ -43,6 +47,7 @@ export async function POST(request: NextRequest) {
       )
       .slice(-20);
     if (recent.length === 0 || recent[recent.length - 1]!.role !== 'user') {
+      reqLog.done(400, { reason: 'no_user_message' });
       return apiError(API_ERROR_CODES.INVALID_REQUEST, 400, '缺少有效的用户消息');
     }
 
@@ -65,7 +70,9 @@ export async function POST(request: NextRequest) {
           ...(fallbackModel ? { modelString: fallbackModel } : {}),
         })
       ).model;
-    } catch {
+    } catch (error) {
+      reqLog.done(503, { reason: 'no_model' }, 'warn');
+      log.warn('Student chat has no model configured:', error);
       return apiError(
         API_ERROR_CODES.MISSING_API_KEY,
         503,
@@ -86,7 +93,6 @@ export async function POST(request: NextRequest) {
     // question row lands at ask time; the answer is patched in when the
     // stream finishes (partial answers are kept, so a mid-stream failure
     // still shows what was asked and how far it got).
-    const studentSession = getStudentSession(request);
     const questionText = recent[recent.length - 1]!.content;
     const questionId = studentSession
       ? await recordQuestion({ studentId: studentSession.sid, question: questionText }).catch(() => null)
@@ -116,6 +122,11 @@ export async function POST(request: NextRequest) {
           }
           closed = true;
           controller.close();
+          reqLog.done(200, {
+            questionId,
+            questionChars: questionText.length,
+            answerChars: answer.length,
+          });
         }
       },
     });
@@ -128,7 +139,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    log.error('Student chat failed:', error);
+    reqLog.fail(error);
     return apiError(
       API_ERROR_CODES.INTERNAL_ERROR,
       500,

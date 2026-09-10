@@ -1886,7 +1886,9 @@
     },
     "ttsBrowserNativeTimelineNotice": "لا يدعم تحويل النص إلى كلام المدمج في المتصفح ميزات الصوت في الخط الزمني للمحرر (المعاينة وإعادة التوليد والتعليق الصوتي الجماعي). بدّل إلى مزود TTS مُدار لتوليد صوت كل سطر وإدارته.",
     "alidocmindAccessKeyId": "AccessKey ID",
-    "alidocmindAccessKeySecret": "AccessKey Secret"
+    "alidocmindAccessKeySecret": "AccessKey Secret",
+    "defaultModelFollowSystem": "اتباع الإعداد الافتراضي للنظام",
+    "defaultModelServerHint": "يتم عرض المزوّدين المهيَّئين على الخادم فقط. يستخدم الطلاب ومراحل التوليد التي لا تحدّد نموذجًا خاصًا النموذج المختار هنا؛ أما `اتباع الإعداد الافتراضي للنظام` فيترك الاختيار للخادم حسب ترتيب المزوّدين."
   },
   "workspace": {
     "untitledCourse": "未命名课堂",

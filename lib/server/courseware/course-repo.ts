@@ -17,6 +17,7 @@ import type { AppStage } from '@/lib/document-store/persistence-types';
 import { createBlankSlideScene } from '@/lib/edit/slide-defaults';
 import { sanitizeSceneContent } from '@/lib/server/sanitize-scene-content';
 import { query, withTransaction } from '@/lib/server/db/pg';
+import { assetUrl } from './asset-repo';
 import { CoursewareDocumentStore } from './document-store';
 import { validateAppScene, validateAppStage } from '@/lib/document-store/validators';
 
@@ -34,6 +35,8 @@ export interface CourseListItem {
   updatedAt: number;
   publishedAt: number | null;
   publishedVersion: number;
+  /** Public URL of the course cover image, or null when none is set. */
+  coverUrl: string | null;
 }
 
 export interface PublishedCourseListItem {
@@ -43,12 +46,15 @@ export interface PublishedCourseListItem {
   sceneCount: number;
   publishedAt: number;
   version: number;
+  /** Public URL of the course cover image, or null when none is set. */
+  coverUrl: string | null;
 }
 
 interface CourseJoinRow {
   id: string;
   status: string;
   source: string;
+  cover_asset_id: string | null;
   published_version: number;
   published_at: number | null;
   created_at: number;
@@ -59,12 +65,24 @@ interface CourseJoinRow {
 }
 
 const COURSE_SELECT = `
-  SELECT c.id, c.status, c.source, c.published_version, c.published_at, c.created_at, c.updated_at,
+  SELECT c.id, c.status, c.source, c.cover_asset_id, c.published_version, c.published_at,
+         c.created_at, c.updated_at,
          s.name, s.description,
          (SELECT COUNT(*) FROM document_scenes sc WHERE sc.stage_id = c.id) AS scene_count
     FROM courses c
     JOIN document_stages s ON s.id = c.id
 `;
+
+/**
+ * Cover art lives in `course_assets` (bytes in the database) and is addressed
+ * by an unguessable asset id, so the public asset route needs no session —
+ * the same posture as every other course media reference. A cover is preserved
+ * across publish/unpublish: it is course metadata, not part of the frozen
+ * content snapshot.
+ */
+export function coverUrlFor(coverAssetId: string | null | undefined): string | null {
+  return coverAssetId ? assetUrl(coverAssetId) : null;
+}
 
 function normalizeStatus(value: string): CourseStatus {
   return value === 'published' || value === 'archived' ? value : 'draft';
@@ -86,6 +104,7 @@ function toListItem(row: CourseJoinRow): CourseListItem {
     updatedAt: Number(row.updated_at),
     publishedAt: row.published_at === null ? null : Number(row.published_at),
     publishedVersion: Number(row.published_version),
+    coverUrl: coverUrlFor(row.cover_asset_id),
   };
 }
 
@@ -199,6 +218,37 @@ export async function deleteCourse(teacherId: string, courseId: string): Promise
   });
 }
 
+export interface DraftDocumentInfo {
+  name: string;
+  updatedAt: number;
+}
+
+/**
+ * The owner's live draft document's name and `updated_at`, or null when this
+ * teacher has no such document.
+ *
+ * This is the freshness marker for an UNPUBLISHED course: a published course
+ * changes only when its version advances, but a draft has no version, so a
+ * client that cached the document locally needs the document's own stamp to
+ * notice its copy is behind. A cheap single-row read — deliberately not
+ * `loadDocument`, which would reassemble every scene just to compare a stamp.
+ *
+ * The `owner_id` predicate IS the authorization: a teacher who does not own
+ * the document sees null, so this cannot be used to confirm another teacher's
+ * unpublished course exists.
+ */
+export async function getDraftDocumentInfo(
+  teacherId: string,
+  courseId: string,
+): Promise<DraftDocumentInfo | null> {
+  const rows = await query<{ name: string; updated_at: number }>(
+    'SELECT name, updated_at FROM document_stages WHERE id = $1 AND owner_id = $2',
+    [courseId, teacherId],
+  );
+  const row = rows[0];
+  return row ? { name: row.name, updatedAt: Number(row.updated_at) } : null;
+}
+
 export interface PublishResult {
   version: number;
   publishedAt: number;
@@ -269,6 +319,7 @@ export async function listPublishedCourses(
     id: string;
     name: string;
     description: string | null;
+    cover_asset_id: string | null;
     scene_count: number;
     published_at: number;
     published_version: number;
@@ -283,7 +334,28 @@ export async function listPublishedCourses(
     sceneCount: Number(row.scene_count),
     publishedAt: Number(row.published_at),
     version: Number(row.published_version),
+    coverUrl: coverUrlFor(row.cover_asset_id),
   }));
+}
+
+/**
+ * Attach (or clear) the course cover image. The caller validates that the asset
+ * exists and is an image; this only flips the pointer, so a cover can be
+ * swapped without touching the document or its published snapshot.
+ */
+export async function setCourseCover(
+  teacherId: string,
+  courseId: string,
+  coverAssetId: string | null,
+): Promise<CourseListItem | null> {
+  const updated = await withTransaction(async (connection) =>
+    connection.execute(
+      'UPDATE courses SET cover_asset_id = $1, updated_at = $2 WHERE id = $3 AND teacher_id = $4',
+      [coverAssetId, Date.now(), courseId, teacherId],
+    ),
+  );
+  if (updated === 0) return null;
+  return getCourseForTeacher(teacherId, courseId);
 }
 
 export interface PublishedSnapshot {

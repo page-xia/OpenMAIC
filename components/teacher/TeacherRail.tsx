@@ -512,7 +512,7 @@ export function TeacherRail({
         </div>
       </div>
 
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} surface="teacher" />
     </nav>
   );
 }

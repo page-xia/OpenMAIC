@@ -11,6 +11,17 @@ import { execute, query, withTransaction } from '@/lib/server/db/pg';
 
 export const SERVER_PROVIDERS_SETTING_KEY = 'server_providers';
 
+/**
+ * The deployment-wide default model ("provider:model") chosen in the settings
+ * dialog.
+ *
+ * Deliberately its own row rather than a field inside `server_providers`: that
+ * row is written with replace-the-whole-value semantics, so saving a default
+ * model from a browser that holds no provider credentials would erase every
+ * server-managed provider. Separate rows keep the two concerns independent.
+ */
+export const SERVER_DEFAULT_MODEL_SETTING_KEY = 'server_default_model';
+
 export interface StoredSetting<T = unknown> {
   key: string;
   value: T;

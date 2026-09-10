@@ -275,6 +275,65 @@ export interface LLMRetryOptions {
 
 const DEFAULT_VALIDATE = (text: string) => text.trim().length > 0;
 
+/**
+ * Wall-clock ceiling for a single `generateText` attempt (milliseconds).
+ *
+ * The AI SDK's built-in retry only reacts to *errors*; a provider that accepts
+ * the connection and then never sends a byte is not an error, it is a hang, and
+ * `await generateText(...)` simply never settles. That is what stranded
+ * classroom generation jobs mid-pipeline (progress frozen at a step, neither
+ * succeeded nor failed) — the job file stayed `running` until the 30-minute
+ * stale sweep. A deadline turns the hang into a TimeoutError, which the retry
+ * layer already classifies as retryable.
+ *
+ * Override with LLM_REQUEST_TIMEOUT_MS; a value of 0 disables the deadline.
+ */
+const DEFAULT_REQUEST_TIMEOUT_MS = 180_000;
+
+function resolveRequestTimeoutMs(): number | undefined {
+  const raw = process.env.LLM_REQUEST_TIMEOUT_MS?.trim();
+  if (!raw) return DEFAULT_REQUEST_TIMEOUT_MS;
+
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isFinite(parsed) && parsed >= 0) {
+    return parsed === 0 ? undefined : parsed;
+  }
+  log.warn(`Ignoring invalid LLM_REQUEST_TIMEOUT_MS="${raw}" (expected milliseconds).`);
+  return DEFAULT_REQUEST_TIMEOUT_MS;
+}
+
+/**
+ * Shape a timed-out attempt so the app-level retry layer retries it.
+ * `name: 'TimeoutError'` is what `isRetryableGenerationError` keys on; a bare
+ * AbortError would be read as a caller cancellation and never retried.
+ */
+function buildRequestTimeoutError(source: string, timeoutMs: number, cause: unknown): Error {
+  const seconds = Math.round(timeoutMs / 1000);
+  const error = new Error(
+    `[${source}] Model provider did not respond within ${seconds}s; request aborted.`,
+  );
+  error.name = 'TimeoutError';
+  if (cause instanceof Error) (error as Error & { cause?: unknown }).cause = cause;
+  return error;
+}
+
+/**
+ * Build the per-attempt abort signal. `AbortSignal.timeout`/`.any` need a modern
+ * runtime (Node >= 20.3); on anything older we simply skip the deadline rather
+ * than crash, since a missing deadline is the status quo, not a regression.
+ */
+function buildAttemptSignal(
+  callerSignal: AbortSignal | undefined,
+  timeoutMs: number | undefined,
+): AbortSignal | undefined {
+  if (timeoutMs == null || typeof AbortSignal.timeout !== 'function') return callerSignal;
+
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  if (!callerSignal) return timeoutSignal;
+  if (typeof AbortSignal.any !== 'function') return timeoutSignal;
+  return AbortSignal.any([callerSignal, timeoutSignal]);
+}
+
 // ---------------------------------------------------------------------------
 // Usage capture
 //
@@ -331,22 +390,32 @@ export async function callLLM<T extends GenerateTextParams>(
 ): Promise<GenerateTextResult<any, any>> {
   const maxAttempts = (retryOptions?.retries ?? 0) + 1;
   const validate = retryOptions?.validate ?? (maxAttempts > 1 ? DEFAULT_VALIDATE : undefined);
+  const timeoutMs = resolveRequestTimeoutMs();
+  const callerSignal = (params as { abortSignal?: AbortSignal }).abortSignal;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let lastResult: GenerateTextResult<any, any> | undefined;
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const attemptSignal = buildAttemptSignal(callerSignal, timeoutMs);
     try {
       // Resolve effective thinking config: per-call > global env > undefined
       const effectiveThinking = thinking ?? getGlobalThinkingConfig();
       const injectedParams = injectProviderOptions(params, effectiveThinking);
 
+      // Bound the attempt so a provider that never responds cannot hang the
+      // caller forever. `AbortSignal.timeout` is unref'd in Node, so the pending
+      // timer never keeps the process alive.
+      const attemptParams = attemptSignal
+        ? { ...injectedParams, abortSignal: attemptSignal }
+        : injectedParams;
+
       // Wrap in thinkingContext so the custom fetch wrapper in providers.ts
       // can read the config and inject vendor-specific body params for
       // OpenAI-compatible providers.
       const result = await thinkingContext.run(effectiveThinking, () =>
-        generateText(injectedParams),
+        generateText(attemptParams),
       );
 
       // Record before validating: every attempt that got this far was billed,
@@ -371,7 +440,16 @@ export async function callLLM<T extends GenerateTextParams>(
 
       return result;
     } catch (error) {
-      lastError = error;
+      // Our deadline firing is an upstream stall, not a caller cancellation:
+      // surface it as a retryable TimeoutError instead of the raw AbortError.
+      const timedOut =
+        timeoutMs != null &&
+        callerSignal?.aborted !== true &&
+        attemptSignal?.aborted === true;
+      lastError =
+        timedOut && timeoutMs != null
+          ? buildRequestTimeoutError(source, timeoutMs, error)
+          : error;
 
       if (attempt < maxAttempts) {
         log.warn(`[${source}] Call failed (attempt ${attempt}/${maxAttempts}), retrying...`, error);

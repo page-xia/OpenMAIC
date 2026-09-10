@@ -1886,7 +1886,9 @@
     },
     "ttsBrowserNativeTimelineNotice": "Giọng đọc của trình duyệt không hỗ trợ các chức năng âm thanh trên dòng thời gian của trình sửa (nghe thử, tạo lại, lồng tiếng hàng loạt). Hãy chuyển sang một nhà cung cấp giọng đọc có quản lý để tạo và quản lý âm thanh theo từng dòng.",
     "alidocmindAccessKeyId": "AccessKey ID",
-    "alidocmindAccessKeySecret": "AccessKey Secret"
+    "alidocmindAccessKeySecret": "AccessKey Secret",
+    "defaultModelFollowSystem": "Theo mặc định hệ thống",
+    "defaultModelServerHint": "Chỉ liệt kê các nhà cung cấp đã cấu hình trên máy chủ. Học viên và các bước tạo nội dung không có model riêng sẽ dùng model chọn ở đây; `Theo mặc định hệ thống` để máy chủ tự chọn theo thứ tự nhà cung cấp."
   },
   "workspace": {
     "untitledCourse": "未命名课堂",

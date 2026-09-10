@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { notifyTeacherLibraryChanged } from '@/lib/teacher/library-signal';
 
 interface CourseListItem {
   id: string;
@@ -29,6 +30,8 @@ interface CourseListItem {
   updatedAt: number;
   publishedAt: number | null;
   publishedVersion: number;
+  /** Cover image URL (page 1 by default, or the teacher's upload); null if unset. */
+  coverUrl: string | null;
 }
 
 const STATUS_TABS = [
@@ -108,6 +111,7 @@ export default function TeacherCoursesPage() {
       toast.success(
         course.status === 'published' ? '已下架，学生端不再可见' : '发布成功，学生端可见',
       );
+      notifyTeacherLibraryChanged();
       await reload();
     } catch {
       toast.error('网络错误，请重试');
@@ -127,6 +131,7 @@ export default function TeacherCoursesPage() {
         return;
       }
       toast.success('课件已删除');
+      notifyTeacherLibraryChanged();
       await reload();
     } catch {
       toast.error('网络错误，请重试');
@@ -206,6 +211,23 @@ export default function TeacherCoursesPage() {
           {courses.map((course) => (
             <Card key={course.id} className="py-0">
               <CardContent className="flex flex-wrap items-center gap-3 px-4 py-3">
+                {/* Cover preview — the same image the student library card shows,
+                    so a missing cover is visible here instead of only to students. */}
+                <div className="h-12 w-20 shrink-0 overflow-hidden rounded-md border bg-muted">
+                  {course.coverUrl ? (
+                    <img
+                      src={course.coverUrl}
+                      alt=""
+                      loading="lazy"
+                      draggable={false}
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex size-full items-center justify-center text-[10px] text-muted-foreground">
+                      无封面
+                    </div>
+                  )}
+                </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <Link

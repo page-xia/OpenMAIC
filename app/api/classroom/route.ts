@@ -9,10 +9,11 @@ import {
   readClassroom,
 } from '@/lib/server/classroom-storage';
 import { sanitizeSceneContent } from '@/lib/server/sanitize-scene-content';
-import { getPublishedSnapshot } from '@/lib/server/courseware/course-repo';
+import { documentStoreFor, getPublishedSnapshot } from '@/lib/server/courseware/course-repo';
 import { getStudentSession } from '@/lib/server/student-auth';
 import { getTeacherSession } from '@/lib/server/teacher-auth';
 import { createLogger } from '@/lib/logger';
+import { startRequestLog } from '@/lib/server/request-log';
 
 const log = createLogger('Classroom API');
 
@@ -104,10 +105,13 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const reqLog = startRequestLog(log, request);
   try {
     const id = request.nextUrl.searchParams.get('id');
+    reqLog.set({ classroomId: id });
 
     if (!id) {
+      reqLog.done(400, { reason: 'missing_id' });
       return apiError(
         API_ERROR_CODES.MISSING_REQUIRED_FIELD,
         400,
@@ -116,6 +120,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!isValidClassroomId(id)) {
+      reqLog.done(400, { reason: 'invalid_id' });
       return apiError(API_ERROR_CODES.INVALID_REQUEST, 400, 'Invalid classroom id');
     }
 
@@ -130,9 +135,21 @@ export async function GET(request: NextRequest) {
       return null;
     });
     if (snapshot) {
-      if (!getStudentSession(request) && !getTeacherSession(request)) {
+      const studentSession = getStudentSession(request);
+      const teacherSession = getTeacherSession(request);
+      if (!studentSession && !teacherSession) {
+        // The single most common "学生进不去课堂" report: a missing/expired
+        // session cookie. Logged with the cookie's absence made explicit.
+        reqLog.done(401, { source: 'published', reason: 'no_session' }, 'warn');
         return apiError(API_ERROR_CODES.INVALID_REQUEST, 401, '请先登录后进入课堂');
       }
+      reqLog.done(200, {
+        source: 'published',
+        viewer: teacherSession ? 'teacher' : 'student',
+        studentId: studentSession?.sid,
+        sceneCount: snapshot.scenes.length,
+        version: snapshot.version,
+      });
       return apiSuccess({
         classroom: sanitizeSceneContent({
           id: snapshot.courseId,
@@ -142,8 +159,44 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Not published — a draft has no snapshot, so the published branch above
+    // cannot serve it. The owner teacher previews the LIVE draft document:
+    // without this, "预览课堂" on a course the teacher has not published yet
+    // 404s and the classroom shell sits empty, so the author cannot see the
+    // course before deciding whether to publish it.
+    //
+    // The read is owner-scoped (`documentStoreFor(tid).loadDocument` filters on
+    // owner_id), so this branch doubles as the authorization check: a teacher
+    // asking for a course they do not own gets null and falls through to the
+    // filesystem/404 path. Students and anonymous visitors never reach it — a
+    // draft is not theirs to see.
+    const teacherSession = getTeacherSession(request);
+    if (teacherSession) {
+      const document = await documentStoreFor(teacherSession.tid)
+        .loadDocument(id)
+        .catch((error: unknown) => {
+          log.warn(`Draft document lookup failed [id=${id}, teacher=${teacherSession.tid}]:`, error);
+          return null;
+        });
+      if (document) {
+        reqLog.done(200, {
+          source: 'draft',
+          viewer: 'teacher',
+          sceneCount: document.scenes.length,
+        });
+        return apiSuccess({
+          classroom: sanitizeSceneContent({
+            id,
+            stage: document.stage,
+            scenes: document.scenes,
+          }),
+        });
+      }
+    }
+
     const classroom = await readClassroom(id);
     if (!classroom) {
+      reqLog.done(404, { source: 'filesystem', reason: 'not_found' });
       return apiError(API_ERROR_CODES.INVALID_REQUEST, 404, 'Classroom not found');
     }
 
@@ -151,12 +204,10 @@ export async function GET(request: NextRequest) {
     // cannot be migrated on deployments we do not control. Run the same
     // sanitizer over the payload on the way out so already-stored content is
     // cleaned at the single serve choke point too.
+    reqLog.done(200, { source: 'filesystem', sceneCount: classroom.scenes.length });
     return apiSuccess({ classroom: sanitizeSceneContent(classroom) });
   } catch (error) {
-    log.error(
-      `Classroom retrieval failed [id=${request.nextUrl.searchParams.get('id') ?? 'unknown'}]:`,
-      error,
-    );
+    reqLog.fail(error);
     return apiError(
       API_ERROR_CODES.INTERNAL_ERROR,
       500,

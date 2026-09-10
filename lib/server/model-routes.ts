@@ -270,3 +270,30 @@ export function getStageRoute(stage?: string): StageRoute | undefined {
 export function getStageModel(stage?: string): string | undefined {
   return getStageRoute(stage)?.model;
 }
+
+/**
+ * Built-in thinking defaults per stage, applied only when neither a
+ * `MODEL_ROUTES` `thinking` object nor the request supplies one.
+ *
+ * `scene-actions` asks the model to pick action types and write narration for a
+ * page whose content it has already been given — a structured
+ * selection/formatting task with no multi-step reasoning behind it. Leaving the
+ * provider default on made reasoning the dominant cost of a real 11-page run:
+ * 73% of all output tokens were reasoning, and a single action list once burned
+ * 36k output tokens (23k of them reasoning) to produce a ~10-item JSON array.
+ * Disabling reasoning for this stage is the largest single lever on classroom
+ * generation latency and spend. An operator can still override it per stage
+ * with a `MODEL_ROUTES` entry (`{"scene-actions":{"model":"…","thinking":{"mode":"enabled"}}}`).
+ *
+ * Stages not listed here keep their previous behavior (provider default, or the
+ * caller's thinking config).
+ */
+const STAGE_DEFAULT_THINKING: Partial<Record<LlmStage, ThinkingConfig>> = {
+  'scene-actions': { mode: 'disabled', enabled: false },
+};
+
+/** The built-in thinking default for a stage, or `undefined` when it has none. */
+export function getStageDefaultThinking(stage?: string): ThinkingConfig | undefined {
+  if (!stage) return undefined;
+  return STAGE_DEFAULT_THINKING[stage as LlmStage];
+}

@@ -1,12 +1,15 @@
 # dependencies
-node_modules
+# `**/` matters: a bare `node_modules` matches only the context root, so
+# workspace packages keep their own (pnpm-created) node_modules in the build
+# context and collide with the deps stage's when `COPY . .` merges the two.
+**/node_modules
 .pnpm-store
 
 # build output
 .next
 out
 build
-dist
+**/dist
 
 # git
 .git

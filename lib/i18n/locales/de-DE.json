@@ -1886,7 +1886,9 @@
     },
     "ttsBrowserNativeTimelineNotice": "Browserintegrierte TTS unterstützt die Audiofunktionen der Editor-Zeitleiste nicht (Vorschau, erneute Generierung und Sammelvertonung). Wechsle zu einem verwalteten TTS-Anbieter, um Audio für einzelne Zeilen zu generieren und zu verwalten.",
     "alidocmindAccessKeyId": "AccessKey ID",
-    "alidocmindAccessKeySecret": "AccessKey Secret"
+    "alidocmindAccessKeySecret": "AccessKey Secret",
+    "defaultModelFollowSystem": "Systemstandard folgen",
+    "defaultModelServerHint": "Es werden nur serverseitig konfigurierte Anbieter aufgelistet. Lernende und Generierungsschritte ohne eigenes Modell verwenden das hier gewählte Modell; `Systemstandard folgen` überlässt die Auswahl der Serverreihenfolge."
   },
   "workspace": {
     "untitledCourse": "未命名课堂",

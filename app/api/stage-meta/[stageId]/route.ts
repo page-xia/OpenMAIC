@@ -25,8 +25,12 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { isAgentRuntimeConfigured } from '@/lib/config/feature-flags';
+import { createLogger } from '@/lib/logger';
+import { startRequestLog } from '@/lib/server/request-log';
 import { resolveStageAccess } from '@/lib/server/stage-access';
 import { withRequestOwnerId } from '@/lib/server/agent-runtime/with-owner';
+
+const log = createLogger('StageMeta');
 
 // Per-viewer and mutable on every publish/unpublish/delete: this response must
 // never be cached, by Next or by anything in front of it.
@@ -36,15 +40,23 @@ export const runtime = 'nodejs';
 type Params = { params: Promise<{ stageId: string }> };
 
 export async function GET(req: NextRequest, { params }: Params) {
-  if (!isAgentRuntimeConfigured()) return new Response('Not found', { status: 404 });
+  const reqLog = startRequestLog(log, req);
+  if (!isAgentRuntimeConfigured()) {
+    reqLog.done(404, { reason: 'runtime_disabled' });
+    return new Response('Not found', { status: 404 });
+  }
 
   return withRequestOwnerId(req, async (ownerId, responseHeaders) => {
     const { stageId } = await params;
+    reqLog.set({ stageId });
     try {
       const access = await resolveStageAccess(stageId);
 
       // Absent or tombstoned — indistinguishable, deliberately.
       if (!access) {
+        // Debug: a stale client may keep probing a deleted course, so absence
+        // is a diagnostic fact, not an operational error.
+        reqLog.done(404, { reason: 'not_found' }, 'debug');
         return NextResponse.json({ error: 'not_found' }, { status: 404, headers: responseHeaders });
       }
 
@@ -54,6 +66,7 @@ export async function GET(req: NextRequest, { params }: Params) {
       // scope inside its write transactions).
       const isOwner = access.ownerId === ownerId;
 
+      reqLog.done(200, { isOwner, isPublic: access.isPublic, source: access.source }, 'debug');
       return NextResponse.json(
         {
           isOwner,
@@ -67,10 +80,7 @@ export async function GET(req: NextRequest, { params }: Params) {
         { status: 200, headers: responseHeaders },
       );
     } catch (error) {
-      console.error('Failed to resolve stage meta', {
-        stageId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      reqLog.fail(error);
       return NextResponse.json(
         { error: 'internal_error' },
         { status: 500, headers: responseHeaders },

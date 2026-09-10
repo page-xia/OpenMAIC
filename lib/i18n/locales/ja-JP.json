@@ -1886,7 +1886,9 @@
     },
     "ttsBrowserNativeTimelineNotice": "ブラウザ内蔵 TTS はエディターのタイムライン音声機能（試聴・再生成・一括音声生成）に対応していません。マネージド TTS プロバイダーに切り替えると、行ごとの音声を生成・管理できます。",
     "alidocmindAccessKeyId": "AccessKey ID",
-    "alidocmindAccessKeySecret": "AccessKey Secret"
+    "alidocmindAccessKeySecret": "AccessKey Secret",
+    "defaultModelFollowSystem": "システムデフォルトに従う",
+    "defaultModelServerHint": "サーバーで設定済みのプロバイダーのみ表示されます。生徒側と、独自のモデルを指定していない生成ステージはここで選んだモデルを使用します。「システムデフォルトに従う」を選ぶと、サーバーがプロバイダー順に自動選択します。"
   },
   "workspace": {
     "untitledCourse": "未命名课堂",

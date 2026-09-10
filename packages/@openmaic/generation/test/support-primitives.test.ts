@@ -22,6 +22,29 @@ describe('action parser', () => {
       ),
     ).toEqual([]);
   });
+
+  it('drops action wrappers whose name is missing or not a real action type', () => {
+    // A truncated trailing wrapper (partial-json keeps only the complete keys)
+    // and a degenerate `name:"action"` turn both used to yield an Action with a
+    // bogus type, which validateScene later rejected — failing the whole document.
+    const actions = parseActionsFromStructuredOutput(
+      '[{"type":"action","name":"spotlight","params":{"elementId":"x"}},' +
+        '{"type":"text","content":"hi"},' +
+        '{"type":"action"},' +
+        '{"type":"action","name":"action"}]',
+      'slide',
+    );
+    expect(actions.map((a) => a.type)).toEqual(['spotlight', 'speech']);
+  });
+
+  it('keeps a truncated trailing action wrapper from poisoning the array', () => {
+    expect(
+      parseActionsFromStructuredOutput(
+        '[{"type":"text","content":"hi"},{"type":"action","name":"spotl',
+        'slide',
+      ).map((a) => a.type),
+    ).toEqual(['speech']);
+  });
 });
 
 describe('interactive HTML post-processing', () => {

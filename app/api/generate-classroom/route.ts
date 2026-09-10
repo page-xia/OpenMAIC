@@ -5,15 +5,25 @@ import { type GenerateClassroomInput } from '@/lib/server/classroom-generation';
 import { runClassroomGenerationJob } from '@/lib/server/classroom-job-runner';
 import { createClassroomGenerationJob } from '@/lib/server/classroom-job-store';
 import { buildRequestOrigin } from '@/lib/server/classroom-storage';
+import { getStudentSession } from '@/lib/server/student-auth';
+import { getTeacherSession } from '@/lib/server/teacher-auth';
 import { createLogger } from '@/lib/logger';
+import { startRequestLog } from '@/lib/server/request-log';
 
 const log = createLogger('GenerateClassroom API');
 
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
+  const reqLog = startRequestLog(log, req);
   let requirementSnippet: string | undefined;
   try {
+    // Best-effort identity for the audit trail. Generation is not auth-gated,
+    // so an anonymous caller is recorded as such rather than rejected.
+    const teacher = getTeacherSession(req);
+    const student = getStudentSession(req);
+    const actor = teacher ? `teacher:${teacher.tid}` : student ? `student:${student.sid}` : 'anonymous';
+
     const rawBody = (await req.json()) as Partial<GenerateClassroomInput>;
     requirementSnippet = rawBody.requirement?.substring(0, 60);
     const body: GenerateClassroomInput = {
@@ -37,6 +47,7 @@ export async function POST(req: NextRequest) {
     const { requirement } = body;
 
     if (!requirement) {
+      reqLog.done(400, { actor, reason: 'missing_requirement' });
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Missing required field: requirement');
     }
 
@@ -45,7 +56,9 @@ export async function POST(req: NextRequest) {
     const job = await createClassroomGenerationJob(jobId, body);
     const pollUrl = `${baseUrl}/api/generate-classroom/${jobId}`;
 
-    after(() => runClassroomGenerationJob(jobId, body, baseUrl));
+    reqLog.done(202, { actor, jobId, requirementChars: requirement.length });
+
+    after(() => runClassroomGenerationJob(jobId, body, baseUrl, { requestId: reqLog.id, actor }));
 
     return apiSuccess(
       {
@@ -59,10 +72,7 @@ export async function POST(req: NextRequest) {
       202,
     );
   } catch (error) {
-    log.error(
-      `Classroom generation job creation failed [requirement="${requirementSnippet ?? 'unknown'}..."]:`,
-      error,
-    );
+    reqLog.fail(error, { requirementPreview: requirementSnippet });
     return apiError(
       'INTERNAL_ERROR',
       500,

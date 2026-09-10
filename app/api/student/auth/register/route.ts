@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { apiError, API_ERROR_CODES, apiSuccess } from '@/lib/server/api-response';
 import { createLogger } from '@/lib/logger';
+import { startRequestLog } from '@/lib/server/request-log';
 import {
   INVITE_CODE_RE,
   registerStudentWithInvite,
@@ -34,16 +35,20 @@ const registerSchema = z.object({
  * student session cookie immediately.
  */
 export async function POST(request: NextRequest) {
+  const reqLog = startRequestLog(log, request);
+  let username: string | undefined;
   try {
     const parsed = registerSchema.safeParse(await request.json());
     if (!parsed.success) {
+      reqLog.done(400, { reason: 'invalid_payload' });
       return apiError(
         API_ERROR_CODES.INVALID_REQUEST,
         400,
         parsed.error.issues[0]?.message ?? '参数不正确',
       );
     }
-    const { username, password, inviteCode } = parsed.data;
+    username = parsed.data.username;
+    const { password, inviteCode } = parsed.data;
     const displayName = parsed.data.displayName || username;
 
     const result = await registerStudentWithInvite({
@@ -53,6 +58,7 @@ export async function POST(request: NextRequest) {
       inviteCode,
     });
     if (!result.ok) {
+      reqLog.done(400, { reason: result.reason, username });
       return apiError(
         API_ERROR_CODES.INVALID_REQUEST,
         400,
@@ -63,9 +69,10 @@ export async function POST(request: NextRequest) {
     const { token, maxAge } = createStudentSessionToken(result.student!);
     const response = apiSuccess({ student: result.student }, 201);
     response.cookies.set('openmaic_student', token, studentCookieOptions(maxAge));
+    reqLog.done(201, { studentId: result.student!.id, username });
     return response;
   } catch (error) {
-    log.error('Student register failed:', error);
+    reqLog.fail(error, { username });
     return apiError(API_ERROR_CODES.INTERNAL_ERROR, 500, '注册失败，请稍后重试');
   }
 }

@@ -91,5 +91,8 @@ e2e/screenshots/
 e2e/__screenshots-619/
 /.playwright-mcp/
 
-
 .acceptance/
+
+# agent scaffolding: local plans/backups and deploy build logs
+/.zcode/
+.deploy/.build.log

@@ -184,6 +184,14 @@ function WorkspaceShellController({
   const { t } = useI18n();
   const router = useRouter();
   const navigation = useWorkspacePaneNavigation(initialPanes);
+  /**
+   * A signed-in teacher's ordinary mode is their operations backend, which is
+   * exactly what `exitHref` encodes (resolved server-side from the httpOnly
+   * cookie). The rail's settings dialog keys its teacher-only sections —
+   * notably the deployment default model — off the same fact, so the two can
+   * never disagree about who is looking.
+   */
+  const isTeacherSurface = exitHref === '/teacher/courses';
 
   // Discover-only: course management lives in the navigation tree.
   const courses = useHomeDiscovery({ mode: 'discover-only' });
@@ -1036,6 +1044,7 @@ function WorkspaceShellController({
           onSessionDeleted={handleSessionDeleted}
           onRenameSession={renameSession}
           onDeleteCourse={handleCourseDeleted}
+          isTeacherSurface={isTeacherSurface}
           resizeHandle={
             <ResizeHandle
               testId="pro-rail-resize-handle"

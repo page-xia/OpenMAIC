@@ -44,4 +44,20 @@ describe('buildCompleteScene', () => {
     expect(first?.outlineId).toBe('slide-1');
     expect(validateScene(first)).toEqual({ valid: true });
   });
+
+  it('drops actions with no real type so the scene stays valid', () => {
+    const scene = buildCompleteScene(
+      slideOutline(),
+      content,
+      [
+        { id: 'a1', type: 'speech', text: 'hello' },
+        // Both shapes that reached storage: a truncated wrapper and a degenerate name.
+        { id: 'a2', type: 'action' },
+        { id: 'a3', type: undefined },
+      ] as never,
+      'stage-1',
+    );
+    expect(scene?.actions?.map((a) => a.type)).toEqual(['speech']);
+    expect(validateScene(scene)).toEqual({ valid: true });
+  });
 });

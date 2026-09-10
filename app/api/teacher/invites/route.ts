@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { apiError, API_ERROR_CODES, apiSuccess } from '@/lib/server/api-response';
 import { createLogger } from '@/lib/logger';
+import { startRequestLog } from '@/lib/server/request-log';
 import {
   createInviteBatch,
   INVITE_BATCH_MAX,
@@ -18,6 +19,7 @@ const createSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
+  const reqLog = startRequestLog(log, request);
   try {
     const session = await requireTeacher(request);
     const status = request.nextUrl.searchParams.get('status');
@@ -25,21 +27,25 @@ export async function GET(request: NextRequest) {
       status: status === 'unused' || status === 'used' ? status : undefined,
       teacherId: session.tid,
     });
+    reqLog.done(200, { teacherId: session.tid, status: status ?? null, count: invites.length }, 'debug');
     return apiSuccess({ invites });
   } catch (error) {
     if (error instanceof TeacherAuthError) {
+      reqLog.done(error.status, { reason: 'auth_error' });
       return apiError(API_ERROR_CODES.INVALID_REQUEST, error.status, error.message);
     }
-    log.error('List invites failed:', error);
+    reqLog.fail(error);
     return apiError(API_ERROR_CODES.INTERNAL_ERROR, 500, 'Failed to list invites');
   }
 }
 
 export async function POST(request: NextRequest) {
+  const reqLog = startRequestLog(log, request);
   try {
     const session = await requireTeacher(request);
     const parsed = createSchema.safeParse(await request.json());
     if (!parsed.success) {
+      reqLog.done(400, { teacherId: session.tid, reason: 'invalid_payload' });
       return apiError(API_ERROR_CODES.INVALID_REQUEST, 400, '数量需为 1-200');
     }
     const { batchId, codes } = await createInviteBatch({
@@ -47,12 +53,15 @@ export async function POST(request: NextRequest) {
       count: parsed.data.count,
       note: parsed.data.note,
     });
+    // Invite minting is a provisioning event: count + batch, never the codes.
+    reqLog.done(201, { teacherId: session.tid, batchId, count: codes.length });
     return apiSuccess({ batchId, codes }, 201);
   } catch (error) {
     if (error instanceof TeacherAuthError) {
+      reqLog.done(error.status, { reason: 'auth_error' });
       return apiError(API_ERROR_CODES.INVALID_REQUEST, error.status, error.message);
     }
-    log.error('Create invite batch failed:', error);
+    reqLog.fail(error);
     return apiError(API_ERROR_CODES.INTERNAL_ERROR, 500, 'Failed to create invites');
   }
 }

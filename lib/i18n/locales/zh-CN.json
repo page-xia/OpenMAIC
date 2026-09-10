@@ -1886,7 +1886,9 @@
     },
     "ttsBrowserNativeTimelineNotice": "浏览器内置 TTS 不支持编辑器时间轴的音频功能（试听、重新生成、全部配音）。切换到托管 TTS 提供方即可逐句生成和管理音频。",
     "alidocmindAccessKeyId": "AccessKey ID",
-    "alidocmindAccessKeySecret": "AccessKey Secret"
+    "alidocmindAccessKeySecret": "AccessKey Secret",
+    "defaultModelFollowSystem": "跟随系统默认",
+    "defaultModelServerHint": "仅列出服务端已配置的提供商。学生端与未单独指定模型的生成阶段都会使用这里选定的模型；选\"跟随系统默认\"则回到服务端按提供商顺序自动选择。"
   },
   "workspace": {
     "untitledCourse": "未命名课堂",

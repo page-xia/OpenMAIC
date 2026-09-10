@@ -312,6 +312,16 @@ cp .env.example .env.local
 docker compose up --build
 ```
 
+#### Deploying to a server (Aliyun / any Docker host)
+
+For a real deployment the image is built locally (a small server cannot run the Next build) and streamed over SSH, with PostgreSQL in its own container. `.deploy/` holds the working setup — nginx vhost, the runtime env-file generator, and the deploy script:
+
+```bash
+bash .deploy/deploy-maic.sh
+```
+
+See [`.deploy/README.md`](./.deploy/README.md) for the topology, the database backup command, how to attach an additional subdomain with its own TLS certificate, and three build issues fixed along the way (`sharp`'s native `libvips` missing from the standalone bundle, `.dockerignore` not matching nested `node_modules`, and `NEXT_PUBLIC_PRO_WORKBENCH_ENABLED` missing from the Docker build args).
+
 #### Slow-network / China build acceleration
 
 Docker builds support two optional build arguments. Both are empty by default,
@@ -537,6 +547,17 @@ This deployment splits content production from content consumption, with the sha
 The courseware backend, the agent runtime, and server-backed persistence all share the single PostgreSQL database from `DATABASE_URL` — there is no second database to run. Locally, `docker compose up postgres` provides one (the app falls back to `postgres://openmaic:openmaic-dev@127.0.0.1:5432/openmaic` when `DATABASE_URL` is unset); on Vercel, point `DATABASE_URL` at any managed Postgres such as Neon or Vercel Postgres.
 
 The schema and the first admin account are created automatically on first use. Log in at `/teacher/login` with `admin` / `Admin@123456` (or `TEACHER_BOOTSTRAP_PASSWORD`) and change it after first login. Course media bytes are stored in the database itself (`bytea`), so nothing depends on a writable server disk; published snapshots are immutable per version.
+
+Note that the seeding above only runs while the `teachers` table is **empty**: setting `TEACHER_BOOTSTRAP_PASSWORD` after the first boot does nothing, and there is no in-app password change. To set or reset a password (including a locked-out admin on a deployed instance), run the script against the same database:
+
+```bash
+# Connects to DATABASE_URL and creates/updates the account.
+pnpm teacher:set-password --username admin            # generates and prints a password
+pnpm teacher:set-password --env-file .env.local       # read DATABASE_URL from a file
+node scripts/set-teacher-password.mjs --print-sql     # emit SQL to paste into a hosted SQL console
+```
+
+`--print-sql` needs no database connection or `pg` dependency, which is the fallback when the database is only reachable from a provider dashboard (Neon, Vercel Postgres). Set `TEACHER_SESSION_SECRET` in production as well — when unset, session cookies are signed with a key derived from `DATABASE_URL`.
 
 ## ✨ Features
 

@@ -1886,7 +1886,9 @@
     },
     "ttsBrowserNativeTimelineNotice": "Встроенный в браузер TTS не поддерживает функции аудио на таймлайне редактора (прослушивание, повторная генерация и массовая озвучка). Переключитесь на управляемый TTS-провайдер, чтобы генерировать и управлять аудио для каждой строки.",
     "alidocmindAccessKeyId": "AccessKey ID",
-    "alidocmindAccessKeySecret": "AccessKey Secret"
+    "alidocmindAccessKeySecret": "AccessKey Secret",
+    "defaultModelFollowSystem": "Как в системе по умолчанию",
+    "defaultModelServerHint": "Показаны только настроенные на сервере провайдеры. Учащиеся и этапы генерации без собственной модели используют выбранную здесь модель; `Как в системе по умолчанию` возвращает выбор серверу по порядку провайдеров."
   },
   "workspace": {
     "untitledCourse": "未命名课堂",

@@ -10,7 +10,7 @@
  */
 
 import type { Action, ActionType } from '@openmaic/dsl';
-import { SLIDE_ONLY_ACTIONS } from '@openmaic/dsl';
+import { isActionType, SLIDE_ONLY_ACTIONS } from '@openmaic/dsl';
 import { nanoid } from 'nanoid';
 import { parse as parsePartialJson, Allow } from 'partial-json';
 import { jsonrepair } from 'jsonrepair';
@@ -110,9 +110,22 @@ export function parseActionsFromStructuredOutput(
           string,
           unknown
         >;
+        // An item whose `name` is missing or is not a real ActionType must never
+        // become an Action. A truncated response run through partial-json yields
+        // the wrapper with its trailing keys dropped (`{"type":"action"}`), and a
+        // degenerate model turn can emit `{"type":"action","name":"action"}`; both
+        // previously produced an Action with a bogus `type` that survived all the
+        // way into storage, where validateScene rejected the whole document (the
+        // "unknown action type" failure). Drop the item here, at the source.
+        if (!isActionType(actionName)) {
+          log.warn(
+            `Skipping action with unknown type ${JSON.stringify(actionName)}: ${JSON.stringify(typedItem).slice(0, 100)}`,
+          );
+          continue;
+        }
         const action = {
           id: (typedItem.action_id || typedItem.tool_id || `action_${nanoid(8)}`) as string,
-          type: actionName as Action['type'],
+          type: actionName,
           ...actionParams,
         } as Action;
         // `widget_setState.state` is required by the type, but the LLM may omit it.

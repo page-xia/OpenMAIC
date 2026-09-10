@@ -96,6 +96,7 @@ async function generateWithProgress() {
 
 describe('classroom scene generation retries', () => {
   beforeEach(() => {
+    delete process.env.PARALLEL_SCENE_CONCURRENCY;
     for (const mock of Object.values(mocks)) {
       mock.mockReset();
     }
@@ -203,6 +204,127 @@ describe('classroom scene generation retries', () => {
     await expect(generateWithProgress()).rejects.toBe(unauthorized);
 
     expect(mocks.generateSceneActions).toHaveBeenCalledTimes(1);
+  });
+
+  it('pre-warms content in parallel when PARALLEL_SCENE_CONCURRENCY is set', async () => {
+    const outlines = [
+      { ...outline, id: 'outline-1', title: 'Page 1', order: 0 },
+      { ...outline, id: 'outline-2', title: 'Page 2', order: 1 },
+      { ...outline, id: 'outline-3', title: 'Page 3', order: 2 },
+    ];
+    mocks.generateSceneOutlinesFromRequirements.mockResolvedValue({
+      success: true,
+      data: { languageDirective: 'Use English.', outlines },
+    });
+    process.env.PARALLEL_SCENE_CONCURRENCY = '2';
+    let inFlight = 0;
+    let maxInFlight = 0;
+    mocks.generateSceneContent.mockImplementation(async () => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      inFlight -= 1;
+      return slideContent;
+    });
+
+    try {
+      const { result } = await generateWithProgress();
+      expect(result.scenesCount).toBe(3);
+      // Bounded, but more than one fetch ran at a time.
+      expect(maxInFlight).toBeGreaterThan(1);
+      expect(maxInFlight).toBeLessThanOrEqual(2);
+    } finally {
+      delete process.env.PARALLEL_SCENE_CONCURRENCY;
+    }
+  });
+
+  it('stays serial when PARALLEL_SCENE_CONCURRENCY is unset', async () => {
+    const outlines = [
+      { ...outline, id: 'outline-1', title: 'Page 1', order: 0 },
+      { ...outline, id: 'outline-2', title: 'Page 2', order: 1 },
+    ];
+    mocks.generateSceneOutlinesFromRequirements.mockResolvedValue({
+      success: true,
+      data: { languageDirective: 'Use English.', outlines },
+    });
+    let inFlight = 0;
+    let maxInFlight = 0;
+    mocks.generateSceneContent.mockImplementation(async () => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight -= 1;
+      return slideContent;
+    });
+
+    const { result } = await generateWithProgress();
+    expect(result.scenesCount).toBe(2);
+    expect(maxInFlight).toBe(1);
+  });
+
+  it('checkpoints the plan and every page, and resumes without redoing work', async () => {
+    const outlines = [
+      { ...outline, id: 'outline-1', title: 'Page 1', order: 0 },
+      { ...outline, id: 'outline-2', title: 'Page 2', order: 1 },
+      { ...outline, id: 'outline-3', title: 'Page 3', order: 2 },
+    ];
+    mocks.generateSceneOutlinesFromRequirements.mockResolvedValue({
+      success: true,
+      data: { languageDirective: 'Use English.', outlines },
+    });
+    mocks.generateSceneContent.mockResolvedValue(slideContent);
+
+    const checkpoints: Array<{ scenes: number; total: number }> = [];
+    let lastState: unknown;
+    const { generateClassroom } = await import('@/lib/server/classroom-generation');
+    const first = await generateClassroom(
+      { requirement: 'Teach retry basics' },
+      {
+        baseUrl: 'http://localhost',
+        onCheckpoint: (state) => {
+          lastState = state;
+          checkpoints.push({ scenes: state.scenes.length, total: state.outlines.length });
+        },
+      },
+    );
+
+    // Plan checkpoint (0 pages) + one checkpoint per page.
+    expect(checkpoints).toEqual([
+      { scenes: 0, total: 3 },
+      { scenes: 1, total: 3 },
+      { scenes: 2, total: 3 },
+      { scenes: 3, total: 3 },
+    ]);
+    expect(first.scenesCount).toBe(3);
+
+    // Resume from the final snapshot: nothing should be regenerated.
+    mocks.generateSceneOutlinesFromRequirements.mockClear();
+    mocks.generateSceneContent.mockClear();
+    mocks.generateSceneActions.mockClear();
+
+    const { generateClassroom: regenerate, isResumableGenerationState } = await import(
+      '@/lib/server/classroom-generation'
+    );
+    expect(isResumableGenerationState(lastState)).toBe(true);
+    const resumed = await regenerate(
+      { requirement: 'Teach retry basics' },
+      { baseUrl: 'http://localhost', resume: lastState as never },
+    );
+
+    expect(mocks.generateSceneOutlinesFromRequirements).not.toHaveBeenCalled();
+    expect(mocks.generateSceneContent).not.toHaveBeenCalled();
+    expect(mocks.generateSceneActions).not.toHaveBeenCalled();
+    expect(resumed.scenesCount).toBe(3);
+  });
+
+  it('rejects a malformed checkpoint value', async () => {
+    const { isResumableGenerationState } = await import('@/lib/server/classroom-generation');
+    expect(isResumableGenerationState(undefined)).toBe(false);
+    expect(isResumableGenerationState(null)).toBe(false);
+    expect(isResumableGenerationState({})).toBe(false);
+    expect(isResumableGenerationState({ outlines: [], agents: [], scenes: [], stage: { id: 's' } })).toBe(
+      false,
+    );
   });
 
   it('converts only PBLGenerationError to a null scene result', async () => {

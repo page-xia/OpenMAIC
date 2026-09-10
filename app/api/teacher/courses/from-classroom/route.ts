@@ -6,6 +6,7 @@ import { readClassroom } from '@/lib/server/classroom-storage';
 import { createCourse } from '@/lib/server/courseware/course-repo';
 import { TeacherAuthError, requireTeacher } from '@/lib/server/teacher-auth';
 import { sanitizeSceneContent } from '@/lib/server/sanitize-scene-content';
+import { dropUnknownActions } from '@/lib/server/repair-scene-actions';
 import { createLogger } from '@/lib/logger';
 import type { AppScene } from '@/lib/types/stage';
 
@@ -36,7 +37,18 @@ export async function POST(request: NextRequest) {
     }
 
     const stage = sanitizeSceneContent(classroom.stage);
-    const scenes = sanitizeSceneContent(classroom.scenes) as AppScene[];
+    // A classroom written before the generator learned to filter unknown action
+    // types can still carry one, and validateScene rejects the whole document
+    // for it. Repair on read so such content is claimable instead of lost.
+    const { scenes: scenesWithKnownActions, dropped } = dropUnknownActions(
+      sanitizeSceneContent(classroom.scenes) as AppScene[],
+    );
+    if (dropped > 0) {
+      log.warn(`Dropped ${dropped} action(s) with unknown types while claiming`, {
+        classroomId: parsed.data.classroomId,
+      });
+    }
+    const scenes = scenesWithKnownActions;
     const course = await createCourse(session.tid, {
       title: parsed.data.titleOverride?.trim() || stage.name || 'AI 生成的课件',
       ...(stage.description ? { description: stage.description } : {}),

@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { notifyTeacherLibraryChanged } from '@/lib/teacher/library-signal';
 
 type CreationMode = 'blank' | 'pptx' | 'maic_zip' | 'ai';
 
@@ -34,6 +35,9 @@ interface GenerationJobStatus {
   totalScenes?: number;
   result?: { classroomId?: string };
   error?: string;
+  /** A failed job with saved progress can be resumed from where it stopped. */
+  resumable?: boolean;
+  checkpoint?: { scenesGenerated: number; totalScenes: number; savedAt: string };
 }
 
 export default function NewCoursePage() {
@@ -49,6 +53,9 @@ export default function NewCoursePage() {
 
   // AI generation progress
   const [genProgress, setGenProgress] = useState<GenerationJobStatus | null>(null);
+  // Kept separately from genProgress so a resume can address the same job even
+  // after the poll payload is replaced.
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const gotoCourse = useCallback(
@@ -77,6 +84,7 @@ export default function NewCoursePage() {
         return;
       }
       toast.success('课件已创建，进入详情页继续编辑');
+      notifyTeacherLibraryChanged();
       gotoCourse(body.course.id);
     } catch {
       toast.error('网络错误，请重试');
@@ -112,6 +120,7 @@ export default function NewCoursePage() {
         return;
       }
       toast.success('导入成功', { id: toastId });
+      notifyTeacherLibraryChanged();
       gotoCourse(body.course?.id ?? body.courseId ?? '');
     } catch {
       toast.error('网络错误或文件过大', { id: toastId });
@@ -122,6 +131,7 @@ export default function NewCoursePage() {
 
   const pollJob = useCallback(
     (jobId: string) => {
+      setActiveJobId(jobId);
       const tick = async () => {
         try {
           const response = await fetch(`/api/generate-classroom/${jobId}`);
@@ -150,12 +160,17 @@ export default function NewCoursePage() {
               return;
             }
             toast.success('AI 课件生成完毕，已加入你的课件库');
+            notifyTeacherLibraryChanged();
             gotoCourse(claimBody.course.id);
             return;
           }
           if (status.status === 'failed') {
-            toast.error(`生成失败：${status.error ?? status.message ?? '未知错误'}`);
-            setGenProgress(null);
+            // Keep the terminal status on screen when the run can be resumed, so
+            // the "继续生成" button stays available; otherwise clear it.
+            if (!status.resumable) {
+              toast.error(`生成失败：${status.error ?? status.message ?? '未知错误'}`);
+              setGenProgress(null);
+            }
             return;
           }
           pollTimer.current = setTimeout(tick, 5000);
@@ -168,6 +183,32 @@ export default function NewCoursePage() {
     [gotoCourse],
   );
 
+  async function submitJob(url: string, successMessage: string) {
+    if (submitting) return;
+    setSubmitting(true);
+    setGenProgress({ status: 'queued', step: 'initializing', progress: 0, message: '', scenesGenerated: 0 });
+    try {
+      const response = await fetch(url, { method: 'POST' });
+      const body = (await response.json()) as {
+        success: boolean;
+        jobId?: string;
+        error?: string;
+      };
+      if (!response.ok || !body.success || !body.jobId) {
+        toast.error(body.error ?? '生成任务创建失败');
+        setGenProgress(null);
+        return;
+      }
+      toast.success(successMessage);
+      pollJob(body.jobId);
+    } catch {
+      toast.error('网络错误，请重试');
+      setGenProgress(null);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function startGeneration() {
     if (submitting) return;
     if (!requirement.trim()) {
@@ -175,7 +216,6 @@ export default function NewCoursePage() {
       return;
     }
     setSubmitting(true);
-    setGenProgress({ status: 'queued', step: 'initializing', progress: 0, message: '', scenesGenerated: 0 });
     try {
       const response = await fetch('/api/generate-classroom', {
         method: 'POST',
@@ -200,6 +240,11 @@ export default function NewCoursePage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  /** Resume a failed job from its last checkpoint instead of regenerating. */
+  async function resumeGeneration(jobId: string) {
+    await submitJob(`/api/generate-classroom/${jobId}/resume`, '已从上次中断处继续生成');
   }
 
   return (
@@ -354,20 +399,47 @@ export default function NewCoursePage() {
               </Button>
               {genProgress ? (
                 <div className="rounded-md border bg-muted/40 px-4 py-3 text-sm">
-                  <p className="font-medium">
-                    {STEP_LABEL[genProgress.step] ?? genProgress.step} · {genProgress.progress}%
-                    {genProgress.totalScenes
-                      ? `（${genProgress.scenesGenerated}/${genProgress.totalScenes} 页）`
-                      : genProgress.scenesGenerated > 0
-                        ? `（已生成 ${genProgress.scenesGenerated} 页）`
-                        : ''}
-                  </p>
-                  {genProgress.message ? (
-                    <p className="mt-1 text-xs text-muted-foreground">{genProgress.message}</p>
-                  ) : null}
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    生成完成后会自动入库并跳转到课件详情。此页面可保持打开，也可以稍后在课件列表中查看结果。
-                  </p>
+                  {genProgress.status === 'failed' && genProgress.resumable ? (
+                    <>
+                      <p className="font-medium text-destructive">
+                        生成中断（已完成 {genProgress.checkpoint?.scenesGenerated ?? 0}/
+                        {genProgress.checkpoint?.totalScenes ?? '?'} 页）
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {genProgress.error ?? genProgress.message ?? '未知错误'}
+                      </p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        已生成的页面和课程规划都已保存，继续生成会从第{' '}
+                        {(genProgress.checkpoint?.scenesGenerated ?? 0) + 1} 页开始，不会重复消耗已用
+                        token。
+                      </p>
+                      <Button
+                        className="mt-3"
+                        size="sm"
+                        disabled={submitting}
+                        onClick={() => activeJobId && void resumeGeneration(activeJobId)}
+                      >
+                        {submitting ? '正在继续…' : '继续生成（断点续连）'}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-medium">
+                        {STEP_LABEL[genProgress.step] ?? genProgress.step} · {genProgress.progress}%
+                        {genProgress.totalScenes
+                          ? `（${genProgress.scenesGenerated}/${genProgress.totalScenes} 页）`
+                          : genProgress.scenesGenerated > 0
+                            ? `（已生成 ${genProgress.scenesGenerated} 页）`
+                            : ''}
+                      </p>
+                      {genProgress.message ? (
+                        <p className="mt-1 text-xs text-muted-foreground">{genProgress.message}</p>
+                      ) : null}
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        生成完成后会自动入库并跳转到课件详情。此页面可保持打开，也可以稍后在课件列表中查看结果。
+                      </p>
+                    </>
+                  )}
                 </div>
               ) : null}
             </CardContent>
